@@ -85,7 +85,7 @@ void autonomous() {
 		{LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},
 		{RIGHT_WHEELS_PORT1_AUTO,RIGHT_WHEELS_PORT2_AUTO},
 		AbstractMotor::gearset::green, //Gearset (200rpm)
-		{3_in, 12.5_in} //Wheel size, wheelbase width orig 4.125, 12.5
+		{4.3_in, 12.5_in} //Wheel size, wheelbase width orig 4.125, 12.5
 	);
 
 	//TODO profile robot to determine actual values for this
@@ -103,16 +103,8 @@ void autonomous() {
 		chassis);
 
 	auto liftController = AsyncControllerFactory::posPID(ARM_PORT, liftP, liftI, liftD); //Max 270 degrees
-
-	//Sample movement Code
-	profileController.generatePath({
-		Point{0_m, 0_m, 0_deg},
-		Point{2_m, 0_m, 0_deg}},
-		"Test"
-	);
-
-	profileController.setTarget("Test");
-	profileController.waitUntilSettled();
+	chassis.setMaxVelocity(100);
+	chassis.moveDistance(2_m);
 }
 
 /**
@@ -131,12 +123,19 @@ void autonomous() {
 void opcontrol() {
 	pros::lcd::set_text(1, "Op!");
 	std::cout << "op";
-	left_motor1.set_brake_mode(MOTOR_BRAKE_HOLD);
-	left_motor2.set_brake_mode(MOTOR_BRAKE_HOLD);
-	right_motor1.set_brake_mode(MOTOR_BRAKE_HOLD);
-	right_motor2.set_brake_mode(MOTOR_BRAKE_HOLD);
+	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
+	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
 	tray.set_brake_mode(MOTOR_BRAKE_HOLD);
 
+	auto chassisOP = ChassisControllerFactory::create(
+		{LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},
+		{RIGHT_WHEELS_PORT1_AUTO,RIGHT_WHEELS_PORT2_AUTO},
+		AbstractMotor::gearset::green, //Gearset (200rpm)
+		{4.125_in, 12.5_in} //Wheel size, wheelbase width orig 4.125, 12.5
+	);
+
+	bool macro = false;
+	int time = pros::c::millis();
 	//FILE* fileWrite = fopen("/usd/test.txt", "w");
 
 	while (true) {
@@ -159,8 +158,8 @@ void opcontrol() {
 			intake2.move_velocity(200);
 		}
 		else if (master.get_digital(DIGITAL_L2)) {
-			intake1.move_velocity(-100);//outtake
-			intake2.move_velocity(-100);
+			intake1.move_velocity(-150);//outtake
+			intake2.move_velocity(-150);
 		}
 		else {
 			intake1.move_velocity(0);
@@ -178,11 +177,17 @@ void opcontrol() {
 		else {
 			tray.move_velocity(0);
 		}
+		if(master.get_digital(DIGITAL_DOWN))
+		{
+			intake1.move(-50);
+			intake2.move(-50);
+		}
+		pros::lcd::set_text(1, std::to_string(time));
 		//double leftVelocity = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity())/2;
 		//double rightVelocity = (right_motor1.get_actual_velocity() + right_motor2.get_actual_velocity())/2;
 		//double linearVelocity = (leftVelocity+rightVelocity)/2;
 		//std::string output = std::to_string(leftVelocity) + " " + std::to_string(rightVelocity) + " " + std::to_string(linearVelocity);
 		//fputs(output.c_str(), fileWrite);
-		//pros::delay(10);
+		pros::delay(10);
 	}
 }
