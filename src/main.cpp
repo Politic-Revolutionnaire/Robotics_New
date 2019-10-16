@@ -85,7 +85,8 @@ void autonomous() {
 		{LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},
 		{RIGHT_WHEELS_PORT1_AUTO,RIGHT_WHEELS_PORT2_AUTO},
 		AbstractMotor::gearset::green, //Gearset (200rpm)
-		{4.3_in, 12.5_in} //Wheel size, wheelbase width orig 4.125, 12.5
+		{4.105_in, 12.5_in} //Wheel size, wheelbase width orig 4.125, 12.5
+		//±0.005m for 4.105in
 	);
 
 	//TODO profile robot to determine actual values for this
@@ -103,8 +104,7 @@ void autonomous() {
 		chassis);
 
 	auto liftController = AsyncControllerFactory::posPID(ARM_PORT, liftP, liftI, liftD); //Max 270 degrees
-	chassis.setMaxVelocity(100);
-	chassis.moveDistance(2_m);
+	chassis.turnAngle(360);
 }
 
 /**
@@ -182,7 +182,7 @@ void opcontrol() {
 			intake1.move(-50);
 			intake2.move(-50);
 		}
-		pros::lcd::set_text(1, std::to_string(time));
+		//pros::lcd::set_text(1, std::to_string(time));
 		//double leftVelocity = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity())/2;
 		//double rightVelocity = (right_motor1.get_actual_velocity() + right_motor2.get_actual_velocity())/2;
 		//double linearVelocity = (leftVelocity+rightVelocity)/2;
