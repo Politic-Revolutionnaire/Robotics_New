@@ -78,6 +78,31 @@ const double liftP = 1.0;
 const double liftI = 0.001;
 const double liftD = 0.1;
 
+int runTime = 1500;
+int intakeSpeed = 200; //rpm
+
+void intake(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= runTime)
+	{
+		intake1.move_velocity(200);
+		intake2.move_velocity(200);
+	}
+	intake1.move_velocity(0);
+	intake2.move_velocity(0);
+}
+
+void outtake(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= runTime)
+	{
+		intake1.move_velocity(-200);
+		intake2.move_velocity(-200);
+	}
+	intake1.move_velocity(0);
+	intake2.move_velocity(0);
+}
+
 void autonomous() {
 	pros::lcd::set_text(1, "Auton!");
 	std::cout << "auto";
@@ -87,8 +112,8 @@ void autonomous() {
 		AbstractMotor::gearset::green, //Gearset (200rpm)
 		{4.105_in, 9.55_in}
 		//Wheel size, wheelbase width orig 4.125, 12.5
-		//±0.005m for 4.105in
-		//±0.5° for 9.55in 
+		//±0.005m for 4.105in wheel size
+		//±0.5° for 9.55in wheelbase
 		//Wheelbase diameter 12.25in, wheelbase back 10in, wheelbase fron 11.25
 	);
 
@@ -107,8 +132,27 @@ void autonomous() {
 		chassis);
 
 	auto liftController = AsyncControllerFactory::posPID(ARM_PORT, liftP, liftI, liftD); //Max 270 degrees
+	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
+	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
+	runTime = 1000;
+	pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
+	pros::delay(1100);
+	runTime = 5000;
+	pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
+	pros::delay(100);
+	chassis.setMaxVelocity(100);
+	chassis.moveDistance(0.8_m);
 	chassis.setMaxVelocity(50);
-	chassis.turnAngle(180_deg);
+	chassis.turnAngle(90_deg);
+	runTime = 1500;
+	pros::Task consumeMore (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consumer More");
+	chassis.setMaxVelocity(100);
+	chassis.moveDistance(0.5_m);
+	chassis.setMaxVelocity(50);
+	chassis.turnAngle(135_deg);
+	chassis.setMaxVelocity(100);
+	chassis.moveDistance(0.6_m);
+	//Tray stack 3/4 rotation velocity 60 time 750ms
 }
 
 void backwardTask(void* param) {
