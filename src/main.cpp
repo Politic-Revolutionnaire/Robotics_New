@@ -85,8 +85,11 @@ void autonomous() {
 		{LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},
 		{RIGHT_WHEELS_PORT1_AUTO,RIGHT_WHEELS_PORT2_AUTO},
 		AbstractMotor::gearset::green, //Gearset (200rpm)
-		{4.105_in, 12.5_in} //Wheel size, wheelbase width orig 4.125, 12.5
+		{4.105_in, 9.55_in}
+		//Wheel size, wheelbase width orig 4.125, 12.5
 		//±0.005m for 4.105in
+		//±0.5° for 9.55in 
+		//Wheelbase diameter 12.25in, wheelbase back 10in, wheelbase fron 11.25
 	);
 
 	//TODO profile robot to determine actual values for this
@@ -104,7 +107,34 @@ void autonomous() {
 		chassis);
 
 	auto liftController = AsyncControllerFactory::posPID(ARM_PORT, liftP, liftI, liftD); //Max 270 degrees
-	chassis.turnAngle(360);
+	chassis.setMaxVelocity(50);
+	chassis.turnAngle(180_deg);
+}
+
+void backwardTask(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= 1500)
+	{
+		left_motor1.move_velocity(-100);
+		left_motor2.move_velocity(-100);
+		right_motor1.move_velocity(-100);
+		right_motor2.move_velocity(-100);
+	}
+	left_motor1.move_velocity(0);
+	left_motor2.move_velocity(0);
+	right_motor1.move_velocity(0);
+	right_motor2.move_velocity(0);
+}
+
+void outtakeTask(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= 1500)
+	{
+		intake1.move_velocity(-125);
+		intake2.move_velocity(-125);
+	}
+	intake1.move_velocity(0);
+	intake2.move_velocity(0);
 }
 
 /**
@@ -126,16 +156,6 @@ void opcontrol() {
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
 	tray.set_brake_mode(MOTOR_BRAKE_HOLD);
-
-	auto chassisOP = ChassisControllerFactory::create(
-		{LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},
-		{RIGHT_WHEELS_PORT1_AUTO,RIGHT_WHEELS_PORT2_AUTO},
-		AbstractMotor::gearset::green, //Gearset (200rpm)
-		{4.125_in, 12.5_in} //Wheel size, wheelbase width orig 4.125, 12.5
-	);
-
-	bool macro = false;
-	int time = pros::c::millis();
 	//FILE* fileWrite = fopen("/usd/test.txt", "w");
 
 	while (true) {
@@ -179,8 +199,9 @@ void opcontrol() {
 		}
 		if(master.get_digital(DIGITAL_DOWN))
 		{
-			intake1.move(-50);
-			intake2.move(-50);
+			pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+			pros::delay(250);
+			pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 		}
 		//pros::lcd::set_text(1, std::to_string(time));
 		//double leftVelocity = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity())/2;
