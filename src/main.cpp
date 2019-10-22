@@ -166,15 +166,15 @@ void autonomous() {
 	runTime = 2100;
 	pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 	pros::delay(100);
-	chassis.setMaxVelocity(100);
+	chassis.setMaxVelocity(125);
 	chassis.moveDistance(0.95_m);
 	chassis.setMaxVelocity(50);
 	chassis.turnAngle(90_deg);
-	runTime = 1100;
+	runTime = 1700;
 	runDelay = 200;
 	pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
 	pros::c::delay(100);
-	chassis.setMaxVelocity(100);
+	chassis.setMaxVelocity(125);
 	chassis.moveDistance(1.2_m);
 	chassis.setMaxVelocity(200);
 	chassis.moveDistance(-0.9_m);
