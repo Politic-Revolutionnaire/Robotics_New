@@ -140,6 +140,32 @@ void outtake(void* param) {
 	intake2.move_velocity(0);
 }
 
+void backwardTask(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= 1500)
+	{
+		left_motor1.move_velocity(-100);
+		left_motor2.move_velocity(-100);
+		right_motor1.move_velocity(-100);
+		right_motor2.move_velocity(-100);
+	}
+	left_motor1.move_velocity(0);
+	left_motor2.move_velocity(0);
+	right_motor1.move_velocity(0);
+	right_motor2.move_velocity(0);
+}
+
+void outtakeTask(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= 1500)
+	{
+		intake1.move_velocity(-125);
+		intake2.move_velocity(-125);
+	}
+	intake1.move_velocity(0);
+	intake2.move_velocity(0);
+}
+
 void autonomous() {
 	pros::lcd::set_text(1, "Auton!");
 	std::cout << "auto";
@@ -209,6 +235,12 @@ void autonomous() {
 	pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 	chassis.setMaxVelocity(150);
 	chassis.moveDistance(1.0_m);
+	//stack the cubes
+	stack();
+	//stack macro
+	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+	pros::delay(300);
+	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 	
 	//Red side short zone
 	/*
@@ -280,32 +312,6 @@ void autonomous() {
 	*/
 
 	//Tray stack 3/4 rotation velocity 60 time 750ms
-}
-
-void backwardTask(void* param) {
-	int time = pros::c::millis();
-	while(pros::c::millis() - time <= 1500)
-	{
-		left_motor1.move_velocity(-100);
-		left_motor2.move_velocity(-100);
-		right_motor1.move_velocity(-100);
-		right_motor2.move_velocity(-100);
-	}
-	left_motor1.move_velocity(0);
-	left_motor2.move_velocity(0);
-	right_motor1.move_velocity(0);
-	right_motor2.move_velocity(0);
-}
-
-void outtakeTask(void* param) {
-	int time = pros::c::millis();
-	while(pros::c::millis() - time <= 1500)
-	{
-		intake1.move_velocity(-125);
-		intake2.move_velocity(-125);
-	}
-	intake1.move_velocity(0);
-	intake2.move_velocity(0);
 }
 
 /**
