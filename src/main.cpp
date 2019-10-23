@@ -84,6 +84,50 @@ int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
 
+void backwardTask(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= 1500)
+	{
+		left_motor1.move_velocity(-100);
+		left_motor2.move_velocity(-100);
+		right_motor1.move_velocity(-100);
+		right_motor2.move_velocity(-100);
+	}
+	left_motor1.move_velocity(0);
+	left_motor2.move_velocity(0);
+	right_motor1.move_velocity(0);
+	right_motor2.move_velocity(0);
+}
+
+void outtakeTask(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= 1500)
+	{
+		intake1.move_velocity(-125);
+		intake2.move_velocity(-125);
+	}
+	intake1.move_velocity(0);
+	intake2.move_velocity(0);
+}
+
+void trayUp(void* param) {
+	//2475
+	//1453
+	tray.set_zero_position(tray.get_position());
+	while(tray.get_position() < 1453)
+	{
+		tray.move_velocity(150);
+	}
+	while(tray.get_position() < 2425)
+	{
+		tray.move_velocity(100);
+	}
+	tray.move_velocity(0);
+	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+	pros::delay(250);
+	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
+}
+
 void intake(void* param) {
 	pros::delay(runDelay);
 	int time = pros::c::millis();
@@ -195,32 +239,6 @@ void autonomous() {
 	//Tray stack 3/4 rotation velocity 60 time 750ms
 }
 
-void backwardTask(void* param) {
-	int time = pros::c::millis();
-	while(pros::c::millis() - time <= 1500)
-	{
-		left_motor1.move_velocity(-100);
-		left_motor2.move_velocity(-100);
-		right_motor1.move_velocity(-100);
-		right_motor2.move_velocity(-100);
-	}
-	left_motor1.move_velocity(0);
-	left_motor2.move_velocity(0);
-	right_motor1.move_velocity(0);
-	right_motor2.move_velocity(0);
-}
-
-void outtakeTask(void* param) {
-	int time = pros::c::millis();
-	while(pros::c::millis() - time <= 1500)
-	{
-		intake1.move_velocity(-125);
-		intake2.move_velocity(-125);
-	}
-	intake1.move_velocity(0);
-	intake2.move_velocity(0);
-}
-
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -240,9 +258,12 @@ void opcontrol() {
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
 	tray.set_brake_mode(MOTOR_BRAKE_HOLD);
+	tray.set_encoder_units(MOTOR_ENCODER_DEGREES);
+	tray.set_zero_position(tray.get_position());
 	//FILE* fileWrite = fopen("/usd/test.txt", "w");
 
 	while (true) {
+		pros::lcd::set_text(1,std::to_string(tray.get_position()));
 		std::cout << master.get_analog(ANALOG_LEFT_Y);
 		left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
 		left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
@@ -286,6 +307,10 @@ void opcontrol() {
 			pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
 			pros::delay(250);
 			pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
+		}
+		if(master.get_digital(DIGITAL_UP))
+		{
+			pros::Task trayMove (trayUp, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Tray Move");
 		}
 		//pros::lcd::set_text(1, std::to_string(time));
 		//double leftVelocity = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity())/2;
