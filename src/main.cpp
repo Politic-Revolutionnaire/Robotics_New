@@ -83,6 +83,7 @@ int runSpeed = 200; //rpm
 int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 200;
+int stackTime = 2000;
 
 void intake(void* param) {
 	pros::delay(runDelay);
@@ -96,12 +97,12 @@ void intake(void* param) {
 	intake2.move_velocity(0);
 }
 
-void stack(void* param) {
+void stack() {
 	pros::delay(runDelay);
 	int time = pros::c::millis();
-	while(pros::c::millis() - time <= runTime)
+	while(pros::c::millis() - time <= stackTime)
 	{
-		tray.move_velocity(runSpeed);
+		tray.move_velocity(-(200)/(1+(2.71828)^(-10*time +10))+200);
 	}
 	tray.move_velocity(0);
 }
