@@ -79,10 +79,10 @@ const double liftI = 0.001;
 const double liftD = 0.1;
 
 int runTime = 1500;
-int runSpeed = 200; //rpm
+int runSpeed = 12000; //rpm
 int runDelay = 0;
 int nestedTime = 400;
-int nestedDelay = 200;
+int nestedDelay = 100;
 
 void intake(void* param) {
 	pros::delay(runDelay);
@@ -157,35 +157,41 @@ void autonomous() {
 		8,
 		chassis);
 
-	//auto liftController = AsyncControllerFactory::posPID(ARM_PORT, liftP, liftI, liftD); //Max 270 degrees
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
+	arm.set_brake_mode(MOTOR_BRAKE_HOLD);
+	arm.set_encoder_units(MOTOR_ENCODER_DEGREES);
+	arm.set_zero_position(arm.get_position());
 	runTime = 1000;
 	pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 	pros::delay(1200);
-	runTime = 2100;
+	chassis.setMaxVelocity(150);
+	chassis.moveDistance(-0.02_m);
+	runTime = 2150;
 	pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 	pros::delay(100);
-	chassis.setMaxVelocity(125);
-	chassis.moveDistance(0.95_m);
+	chassis.setMaxVelocity(150);
+	chassis.moveDistance(1.15_m);
 	chassis.setMaxVelocity(50);
-	chassis.turnAngle(90_deg);
-	runTime = 1700;
+	chassis.turnAngle(-95_deg);
+	runTime = 1800;
 	runDelay = 200;
 	pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
 	pros::c::delay(100);
-	chassis.setMaxVelocity(125);
-	chassis.moveDistance(1.2_m);
+	chassis.setMaxVelocity(150);
+	chassis.moveDistance(1.3_m);
 	chassis.setMaxVelocity(200);
-	chassis.moveDistance(-0.9_m);
+	chassis.moveDistance(-1.0_m);
 	chassis.setMaxVelocity(50);
-	chassis.turnAngle(135_deg);
+	chassis.turnAngle(-135_deg);
 	runDelay = 700;
 	runTime = 500;
-	runSpeed = 50;
+	runSpeed = 3000;
 	pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 	chassis.setMaxVelocity(135);
-	chassis.moveDistance(0.65_m);
+	chassis.moveDistance(0.50_m);
+	pros::c::delay(2000);
+	pros::Task trayUp (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "TrayUp");
 	//Tray stack 3/4 rotation velocity 60 time 750ms
 }
 
