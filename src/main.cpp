@@ -96,6 +96,16 @@ void intake(void* param) {
 	intake2.move_velocity(0);
 }
 
+void stack(void* param) {
+	pros::delay(runDelay);
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= runTime)
+	{
+		tray.move_velocity(runSpeed);
+	}
+	tray.move_velocity(0);
+}
+
 void nestedIntake(void* param) {
 	pros::delay(runDelay);
 	int time = pros::c::millis();
@@ -158,11 +168,12 @@ void autonomous() {
 		chassis);
 
 	//auto liftController = AsyncControllerFactory::posPID(ARM_PORT, liftP, liftI, liftD); //Max 270 degrees
+	// Blue side short zone
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
-	runTime = 1000;
+	runTime = 900;
 	pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
-	pros::delay(1200);
+	pros::delay(1000);
 	runTime = 2000;
 	pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 	pros::delay(100);
@@ -170,24 +181,23 @@ void autonomous() {
 	chassis.setMaxVelocity(120);
 	chassis.moveDistance(1.07_m);
 	//turn into position
-	chassis.setMaxVelocity(100);
+	chassis.setMaxVelocity(150);
 	chassis.turnAngle(-40_deg);
 	//back into position
 	chassis.setMaxVelocity(200);
-	chassis.moveDistance(-1.0_m);
+	chassis.moveDistance(-0.95_m);
 	//reset for suc
-	chassis.setMaxVelocity(200);
-	chassis.turnAngle(40_deg);
+	chassis.setMaxVelocity(150);
+	chassis.turnAngle(35_deg);
 	//prepare suc
-	runTime = 1500;
-	runDelay = 100;
+	runTime = 1200;
 	pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
 	//drive into row and suc
-	chassis.setMaxVelocity(100);
+	chassis.setMaxVelocity(120);
 	chassis.moveDistance(0.9_m);
 	//back out for position
 	chassis.setMaxVelocity(100);
-	chassis.moveDistance(0.13_m);
+	chassis.moveDistance(-0.13_m);
 	//turn to score
 	chassis.setMaxVelocity(100);
 	chassis.turnAngle(-135_deg);
@@ -196,11 +206,54 @@ void autonomous() {
 	runTime = 500;
 	runSpeed = 50;
 	pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-	chassis.setMaxVelocity(100);
+	chassis.setMaxVelocity(150);
 	chassis.moveDistance(1.0_m);
+	
+	//Red side short zone
+	/*
+	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
+	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
+	runTime = 900;
+	pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
+	pros::delay(1000);
+	runTime = 2000;
+	pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
+	pros::delay(100);
+	//first row
+	chassis.setMaxVelocity(120);
+	chassis.moveDistance(1.07_m);
+	//turn into position
+	chassis.setMaxVelocity(150);
+	chassis.turnAngle(40_deg);
+	//back into position
+	chassis.setMaxVelocity(200);
+	chassis.moveDistance(-0.95_m);
+	//reset for suc
+	chassis.setMaxVelocity(90);
+	chassis.turnAngle(-35_deg);
+	//prepare suc
+	runTime = 1200;
+	pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
+	//drive into row and suc
+	chassis.setMaxVelocity(120);
+	chassis.moveDistance(0.9_m);
+	//back out for position
+	chassis.setMaxVelocity(100);
+	chassis.moveDistance(-0.13_m);
+	//turn to score
+	chassis.setMaxVelocity(100);
+	chassis.turnAngle(135_deg);
+	//drive to score (outtake some)
+	runDelay = 700;
+	runTime = 500;
+	runSpeed = 50;
+	pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
+	chassis.setMaxVelocity(150);
+	chassis.moveDistance(1.0_m);
+	*/
 
 
-	//small zone prog
+	//small zone prog (gus version)
 	/*
 	chassis.setMaxVelocity(100);
 	chassis.turnAngle(90_deg);
