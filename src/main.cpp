@@ -97,15 +97,6 @@ void intake(void* param) {
 	intake2.move_velocity(0);
 }
 
-void stack() {
-	pros::delay(runDelay);
-	int time = pros::c::millis();
-	while(pros::c::millis() - time <= stackTime)
-	{
-		tray.move_velocity(-(200)/(1+(2.71828)^(-10*time +10))+200);
-	}
-	tray.move_velocity(0);
-}
 
 void nestedIntake(void* param) {
 	pros::delay(runDelay);
@@ -166,6 +157,24 @@ void outtakeTask(void* param) {
 	intake2.move_velocity(0);
 }
 
+void trayUp(void* param) {
+	//2475
+	//1453
+	tray.set_zero_position(tray.get_position());
+	while(tray.get_position() < 1453)
+	{
+		tray.move_velocity(150);
+	}
+	while(tray.get_position() < 2425)
+	{
+		tray.move_velocity(100);
+	}
+	tray.move_velocity(0);
+	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+	pros::delay(250);
+	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
+}
+
 void autonomous() {
 	pros::lcd::set_text(1, "Auton!");
 	std::cout << "auto";
@@ -196,6 +205,7 @@ void autonomous() {
 
 	//auto liftController = AsyncControllerFactory::posPID(ARM_PORT, liftP, liftI, liftD); //Max 270 degrees
 	// Blue side short zone
+	/*
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
 	runTime = 900;
@@ -240,16 +250,17 @@ void autonomous() {
 	//stack macro
 	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
 	pros::delay(300);
+	runTime = 1000;
 	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
-	
+	*/
 	//Red side short zone
-	/*
+	
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
 	runTime = 900;
 	pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 	pros::delay(1000);
-	runTime = 2000;
+	runTime = 2200;
 	pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 	pros::delay(100);
 	//first row
@@ -262,8 +273,8 @@ void autonomous() {
 	chassis.setMaxVelocity(200);
 	chassis.moveDistance(-0.95_m);
 	//reset for suc
-	chassis.setMaxVelocity(90);
-	chassis.turnAngle(-35_deg);
+	chassis.setMaxVelocity(150);
+	chassis.turnAngle(-50_deg);//should be -40
 	//prepare suc
 	runTime = 1200;
 	pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
@@ -274,17 +285,16 @@ void autonomous() {
 	chassis.setMaxVelocity(100);
 	chassis.moveDistance(-0.13_m);
 	//turn to score
-	chassis.setMaxVelocity(100);
-	chassis.turnAngle(135_deg);
-	//drive to score (outtake some)
 	runDelay = 700;
-	runTime = 500;
+	runTime = 600;
 	runSpeed = 50;
 	pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
+	chassis.setMaxVelocity(100);
+	chassis.turnAngle(145_deg);//should be 135
+	//drive to score (outtake some)
 	chassis.setMaxVelocity(150);
 	chassis.moveDistance(1.0_m);
-	*/
-
+	pros::Task trayUp (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "TrayUp");
 
 	//small zone prog (gus version)
 	/*
