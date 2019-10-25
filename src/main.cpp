@@ -273,9 +273,9 @@ void autonomous() {
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
-		runTime = 2200;
+		runTime = 10000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
-		pros::delay(100);
+		pros::delay(0);
 		//first row
 		chassis.setMaxVelocity(120);
 		chassis.moveDistance(1.07_m);
@@ -312,7 +312,7 @@ void autonomous() {
 	else if(autonMode == 2)
 	{
 		//big zone
-		
+
 		chassis.moveDistance(0.4_m);
 		chassis.moveDistance(-0.2_m);
 		runTime = 1000;
