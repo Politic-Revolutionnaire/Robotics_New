@@ -7,3 +7,5 @@ Steps to connect to repository:
 3. Edit the files and commit to where you want the changes to go.
 4. Push the changes
 5. MAKE SURE THE AUTON AND SIDE SELECTOR IS CORRECT TO THE SIDE AND ROUTE
+Default is Red side. Change sideSelect to -1 for blue side
+Change autonMode from 0,1,2 for different routes
