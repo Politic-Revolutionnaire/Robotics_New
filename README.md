@@ -6,3 +6,4 @@ Steps to connect to repository:
 2. Download (clone the repository online)
 3. Edit the files and commit to where you want the changes to go.
 4. Push the changes
+5. MAKE SURE THE AUTON AND SIDE SELECTOR IS CORRECT TO THE SIDE AND ROUTE
