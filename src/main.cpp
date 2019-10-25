@@ -83,8 +83,8 @@ int runSpeed = 12000; //rpm
 int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
-int autonMode = 1;
-int sideSelector = 1;
+int autonMode = 2; //0 is Gus, 1 is Sean, 2 is big zone
+int sideSelector = -1; //default is red
 
 void backwardTask(void* param) {
 	int time = pros::c::millis();
@@ -268,12 +268,12 @@ void autonomous() {
 	{
 		//sean short zone
 
-		intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
+		/*intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 		intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
-		runTime = 10000;
+		runTime = 2000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(0);
 		//first row
@@ -283,14 +283,15 @@ void autonomous() {
 		chassis.setMaxVelocity(150);
 		chassis.turnAngle((sideSelector)*40_deg);
 		//back into position
-		chassis.setMaxVelocity(200);
+		chassis.setMaxVelocity(180);
 		chassis.moveDistance(-0.95_m);
 		//reset for suc
-		chassis.setMaxVelocity(150);
-		chassis.turnAngle((sideSelector)*-40_deg);//should be -40
+		chassis.setMaxVelocity(100);
+		chassis.turnAngle((sideSelector)*-35_deg);//true value is -40. experimental is 40
 		//prepare suc
-		runTime = 1200;
+		runTime = 1700;
 		pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
+		runDelay = 100;
 		//drive into row and suc
 		chassis.setMaxVelocity(120);
 		chassis.moveDistance(0.9_m);
@@ -302,37 +303,37 @@ void autonomous() {
 		runTime = 600;
 		runSpeed = 50;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		chassis.setMaxVelocity(100);
-		chassis.turnAngle((sideSelector)*135_deg);//should be 135
+		chassis.setMaxVelocity(50);
+		chassis.turnAngle((sideSelector)*120_deg);//true value is 135*/
 		//drive to score (outtake some)
-		chassis.setMaxVelocity(150);
-		chassis.moveDistance(1.0_m);
-		pros::Task trayTask (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		pros::Task trayTaskOP (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		//chassis.setMaxVelocity(150);
+		//chassis.moveDistance(1.0_m);
+		
 	}
 	else if(autonMode == 2)
 	{
 		//big zone
-
-		chassis.moveDistance(0.4_m);
-		chassis.moveDistance(-0.2_m);
 		runTime = 1000;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1200);
 		runTime = 10000;
 		pros::Task insome (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Intake");
-		chassis.setMaxVelocity(125);
+		//get the front and tower cube
+		chassis.setMaxVelocity(200);
 		chassis.moveDistance(1.2_m);
+		//turn to other cube
 		chassis.setMaxVelocity(50);
 		chassis.turnAngle((sideSelector)*90_deg);
-		chassis.setMaxVelocity(125);
-		chassis.moveDistance(1.0_m);
-		chassis.moveDistance(-0.5_m);
-		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*90_deg);
+		//get next cube
 		chassis.setMaxVelocity(125);
 		chassis.moveDistance(0.7_m);
+		chassis.moveDistance(-1.0_m);
+		//turn to stack
 		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*25_deg);
+		chassis.turnAngle((sideSelector)*135_deg);
+		//drive into zone 
+		chassis.setMaxVelocity(125);
 		chassis.moveDistance(0.7_m);
 		pros::Task trayTask (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 	}
