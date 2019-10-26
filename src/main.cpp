@@ -83,7 +83,7 @@ int runSpeed = 12000; //rpm
 int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
-int autonMode = 2; //0 is Gus, 1 is Sean, 2 is big zone
+int autonMode = 1; //0 is Gus, 1 is Sean, 2 is big zone
 int sideSelector = -1; //default is red
 
 void backwardTask(void* param) {
@@ -261,14 +261,14 @@ void autonomous() {
 		chassis.setMaxVelocity(135);
 		chassis.moveDistance(0.50_m);
 		pros::c::delay(2000);
-		pros::Task trayTask (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		pros::Task traystack (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		//Tray stack 3/4 rotation velocity 60 time 750ms
 	}
 	else if(autonMode == 1)
 	{
 		//sean short zone
 
-		/*intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
+		intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 		intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
@@ -304,11 +304,11 @@ void autonomous() {
 		runSpeed = 50;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*120_deg);//true value is 135*/
+		chassis.turnAngle((sideSelector)*120_deg);//true value is 135
 		//drive to score (outtake some)
-		pros::Task trayTaskOP (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
-		//chassis.setMaxVelocity(150);
-		//chassis.moveDistance(1.0_m);
+		pros::Task traystack (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		chassis.setMaxVelocity(150);
+		chassis.moveDistance(1.0_m);
 		
 	}
 	else if(autonMode == 2)
@@ -335,7 +335,7 @@ void autonomous() {
 		//drive into zone 
 		chassis.setMaxVelocity(125);
 		chassis.moveDistance(0.7_m);
-		pros::Task trayTask (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		pros::Task traystack (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 	}
 }
 
