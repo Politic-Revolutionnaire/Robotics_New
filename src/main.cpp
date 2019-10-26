@@ -79,12 +79,18 @@ const double liftI = 0.001;
 const double liftD = 0.1;
 
 int runTime = 1500;
-int runSpeed = 12000; //rpm
+int runSpeed = 200; //rpm
 int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
+<<<<<<< Updated upstream
 int autonMode = 1;
 int sideSelector = 1;
+=======
+int autonMode = 2; //0 for L path, 1 for Z path, 2 for square path
+int sideSelector = 1;//1 for red, -1 for blue
+int stackDelay = 500;
+>>>>>>> Stashed changes
 
 void backwardTask(void* param) {
 	int time = pros::c::millis();
@@ -112,22 +118,37 @@ void outtakeTask(void* param) {
 	intake2.move_velocity(0);
 }
 
+void trayAdjust(void* param) {
+	int trayPos = tray.get_position();
+	while(tray.get_position() < trayPos + 550)
+	{
+		tray.move_velocity(100);
+	}
+	pros::delay(250);
+	trayPos = tray.get_position();
+	while(tray.get_position() > trayPos - 550)
+	{
+		tray.move_velocity(-100);
+	}
+	tray.move_velocity(0);
+}
+
 void trayTask(void* param) {
 	//2475
 	//1453
-	tray.set_zero_position(tray.get_position());
+	pros::delay(stackDelay);
 	int trayPos = tray.get_position();
 	while(tray.get_position() < trayPos + 1453)
 	{
 		tray.move_velocity(150);
 	}
-	while(tray.get_position() < trayPos + 2425)
+	while(tray.get_position() < trayPos + 2175)
 	{
-		tray.move_velocity(100);
+		tray.move_velocity(90);
 	}
 	tray.move_velocity(0);
 	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
-	pros::delay(250);
+	pros::delay(350);
 	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 }
 
@@ -138,9 +159,9 @@ void trayTaskOP(void* param) {
 	int trayPos = tray.get_position();
 	while(tray.get_position() < trayPos + 1453)
 	{
-		tray.move_velocity(150);
+		tray.move_velocity(125);
 	}
-	while(tray.get_position() < trayPos + 2475)
+	while(tray.get_position() < trayPos + 2425)
 	{
 		tray.move_velocity(75);
 	}
@@ -155,6 +176,7 @@ void intake(void* param) {
 	int time = pros::c::millis();
 	while(pros::c::millis() - time <= runTime)
 	{
+		pros::lcd::set_text(1,std::to_string(tray.get_position()));
 		intake1.move_velocity(runSpeed);
 		intake2.move_velocity(runSpeed);
 	}
@@ -167,6 +189,7 @@ void nestedIntake(void* param) {
 	int time = pros::c::millis();
 	while(pros::c::millis() - time <= runTime)
 	{
+		pros::lcd::set_text(1,std::to_string(tray.get_position()));
 		intake1.move_velocity(runSpeed);
 		intake2.move_velocity(runSpeed);
 	}
@@ -188,6 +211,7 @@ void outtake(void* param) {
 	int time = pros::c::millis();
 	while(pros::c::millis() - time <= runTime)
 	{
+		pros::lcd::set_text(1,std::to_string(tray.get_position()));
 		intake1.move_velocity(-runSpeed);
 		intake2.move_velocity(-runSpeed);
 	}
@@ -222,14 +246,17 @@ void autonomous() {
 		4,
 		8,
 		chassis);
-
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
-	arm.set_brake_mode(MOTOR_BRAKE_HOLD);
-	arm.set_encoder_units(MOTOR_ENCODER_DEGREES);
-	arm.set_zero_position(arm.get_position());
+	tray.set_brake_mode(MOTOR_BRAKE_HOLD);
+	tray.set_encoder_units(MOTOR_ENCODER_DEGREES);
+	tray.set_zero_position(tray.get_position());
 	if(autonMode == 0)
 	{
+<<<<<<< Updated upstream
+=======
+		//L path: moves forward, turns 90°, moves forward again then back, turns 135° and goes to corner
+>>>>>>> Stashed changes
 		runTime = 1000;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1200);
@@ -259,23 +286,34 @@ void autonomous() {
 		chassis.setMaxVelocity(135);
 		chassis.moveDistance(0.50_m);
 		pros::c::delay(2000);
+<<<<<<< Updated upstream
 		pros::Task trayTask (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+=======
+		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+>>>>>>> Stashed changes
 		//Tray stack 3/4 rotation velocity 60 time 750ms
 	}
 	else if(autonMode == 1)
 	{
+<<<<<<< Updated upstream
+=======
+		//Z path: Moves forward, moves diagonally, moves forward again, returns to corner
+>>>>>>> Stashed changes
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
-		runTime = 2000;
+		runTime = 2200;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
+<<<<<<< Updated upstream
 		pros::delay(100);
 		//first row
+=======
+>>>>>>> Stashed changes
 		chassis.setMaxVelocity(120);
 		chassis.moveDistance(1.07_m);
-		//turn into position
-		chassis.setMaxVelocity(150);
+		chassis.setMaxVelocity(50);
 		chassis.turnAngle((sideSelector)*40_deg);
+<<<<<<< Updated upstream
 		//back into position
 		chassis.setMaxVelocity(200);
 		chassis.moveDistance(-0.95_m);
@@ -287,10 +325,22 @@ void autonomous() {
 		pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
 		//drive into row and suc
 		chassis.setMaxVelocity(120);
-		chassis.moveDistance(0.9_m);
-		//back out for position
+=======
+		tray.set_zero_position(tray.get_position());
+		pros::Task trayAdj (trayAdjust, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		chassis.setMaxVelocity(180);
+		chassis.moveDistance(-0.97_m);
 		chassis.setMaxVelocity(100);
+		chassis.turnAngle((sideSelector)*-35_deg);
+		runTime = 2000;
+		runDelay = 100;
+		pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
+		chassis.setMaxVelocity(175);
+>>>>>>> Stashed changes
+		chassis.moveDistance(0.9_m);
+		chassis.setMaxVelocity(185);
 		chassis.moveDistance(-0.13_m);
+<<<<<<< Updated upstream
 		//turn to score
 		chassis.setMaxVelocity(100);
 		chassis.turnAngle((sideSelector)*135_deg);
@@ -308,10 +358,32 @@ void autonomous() {
 		chassis.moveDistance(0.4_m);
 		chassis.moveDistance(-0.2_m);
 		runTime = 1000;
+=======
+		runDelay = 500;
+		runTime = 700;
+		runSpeed = 60;
+		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
+		chassis.setMaxVelocity(50);
+		chassis.turnAngle((sideSelector)*128_deg);//Measured is 135°
+		stackDelay = 700;
+		pros::lcd::set_text(1,std::to_string(tray.get_position()));
+		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		chassis.setMaxVelocity(150);
+		chassis.moveDistance(1.1_m);
+	}
+	else if(autonMode == 2)
+	{
+		runTime = 1200;
+>>>>>>> Stashed changes
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
-		pros::delay(1200);
-		runTime = 10000;
+		pros::delay(1300);
+		//If starting cube is placed in front of the bot use this
+		chassis.moveDistance(0.4_m);
+		chassis.setMaxVelocity(100);
+		chassis.moveDistance(-0.30_m);
+		runTime = 7000;
 		pros::Task insome (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Intake");
+<<<<<<< Updated upstream
 		chassis.setMaxVelocity(125);
 		chassis.moveDistance(1.2_m);
 		chassis.setMaxVelocity(50);
@@ -327,6 +399,27 @@ void autonomous() {
 		chassis.turnAngle((sideSelector)*25_deg);
 		chassis.moveDistance(0.7_m);
 		pros::Task trayTask (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+=======
+		chassis.setMaxVelocity(150);
+		chassis.moveDistance(1.07_m);
+		/*
+		chassis.setMaxVelocity(50);
+		chassis.turnAngle((sideSelector)*90_deg);
+		chassis.setMaxVelocity(125);
+		chassis.moveDistance(0.7_m);
+		chassis.moveDistance(-0.85_m);
+		*/
+		chassis.setMaxVelocity(50);
+		chassis.turnAngle((sideSelector)*-135_deg);
+		chassis.setMaxVelocity(125);
+		chassis.moveDistance(0.9_m);
+		runDelay = 0;
+		runTime = 800;
+		runSpeed = 60;
+		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
+		tray.set_zero_position(tray.get_position());
+		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+>>>>>>> Stashed changes
 	}
 }
 
