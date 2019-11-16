@@ -1,6 +1,7 @@
 #include "main.h"
 #include "okapi/api.hpp"
 #include "globals.h"
+#include "api.h"
 
 /**
  * A callback function for LLEMU's center button.
@@ -75,6 +76,7 @@ using namespace okapi;
 #define INTAKE_PORT1 5
 #define INTAKE_PORT2 6
 #define TRAY_PORT 14
+#define BUTTON_PORT 3
 
 const double liftP = 1.0;
 const double liftI = 0.001;
@@ -158,11 +160,11 @@ void trayTaskOP(void* param) {
 	//1453
 	tray.set_zero_position(tray.get_position());
 	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 1700)
+	while(tray.get_position() < trayPos + 1900)
 	{
 		tray.move_velocity(125);
 	}
-	while(tray.get_position() < trayPos + 2600)
+	while(tray.get_position() < trayPos + 2650)
 	{
 		tray.move_velocity(75);
 		intake1.move_velocity(100);
@@ -432,6 +434,7 @@ void opcontrol() {
 
 	while (true) {
 		pros::lcd::set_text(1,std::to_string(arm.get_position()));
+		//pros::lcd::set_text(1,std::to_string(digitalRead(BUTTON_PORT)));
 		std::cout << master.get_analog(ANALOG_LEFT_Y);
 		left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
 		left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
