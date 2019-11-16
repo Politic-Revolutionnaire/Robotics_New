@@ -62,6 +62,8 @@ void competition_initialize() {}
  */
 using namespace okapi;
 
+//deadports 1,7,10,12
+
 //Subject to change
 #define RIGHT_WHEELS_PORT1_OP 13
 #define RIGHT_WHEELS_PORT2_OP 2
@@ -69,10 +71,10 @@ using namespace okapi;
 #define RIGHT_WHEELS_PORT2_AUTO -2 //Bottom right
 #define LEFT_WHEELS_PORT1 3 //Top left
 #define LEFT_WHEELS_PORT2 4 //Bottom left
-#define ARM_PORT 7
+#define ARM_PORT 8
 #define INTAKE_PORT1 5
 #define INTAKE_PORT2 6
-#define TRAY_PORT 11
+#define TRAY_PORT 14
 
 const double liftP = 1.0;
 const double liftI = 0.001;
@@ -83,14 +85,11 @@ int runSpeed = 200; //rpm
 int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
-<<<<<<< Updated upstream
-int autonMode = 1;
-int sideSelector = 1;
-=======
-int autonMode = 2; //0 for L path, 1 for Z path, 2 for square path
+//0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
+int autonMode = 4;
 int sideSelector = 1;//1 for red, -1 for blue
 int stackDelay = 500;
->>>>>>> Stashed changes
+int stageDelay = 1000;
 
 void backwardTask(void* param) {
 	int time = pros::c::millis();
@@ -142,6 +141,8 @@ void trayTask(void* param) {
 	{
 		tray.move_velocity(150);
 	}
+	tray.move_velocity(0);
+	pros::delay(stageDelay);
 	while(tray.get_position() < trayPos + 2175)
 	{
 		tray.move_velocity(90);
@@ -157,18 +158,40 @@ void trayTaskOP(void* param) {
 	//1453
 	tray.set_zero_position(tray.get_position());
 	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 1453)
+	while(tray.get_position() < trayPos + 1700)
 	{
 		tray.move_velocity(125);
 	}
-	while(tray.get_position() < trayPos + 2425)
+	while(tray.get_position() < trayPos + 2600)
 	{
 		tray.move_velocity(75);
+		intake1.move_velocity(100);
+		intake2.move_velocity(100);
 	}
 	tray.move_velocity(0);
+	intake1.move_velocity(0);
+	intake2.move_velocity(0);
+	pros::delay(500);
 	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
 	pros::delay(250);
 	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
+}
+
+void armTask(void* param) {
+	tray.set_zero_position(tray.get_position());
+	int trayPos = tray.get_position();
+	while(tray.get_position() < trayPos + 1180)
+	{
+		tray.move_velocity(175);
+	}
+	tray.move_velocity(0);
+	arm.set_zero_position(arm.get_position());
+	int armPos = arm.get_position();
+	while(arm.get_position() < armPos + 945)
+	{
+		arm.move_velocity(200);
+	}
+	arm.move_velocity(0);
 }
 
 void intake(void* param) {
@@ -248,6 +271,7 @@ void autonomous() {
 		chassis);
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
+	arm.set_brake_mode(MOTOR_BRAKE_HOLD);
 	tray.set_brake_mode(MOTOR_BRAKE_HOLD);
 	tray.set_encoder_units(MOTOR_ENCODER_DEGREES);
 	tray.set_zero_position(tray.get_position());
@@ -258,7 +282,7 @@ void autonomous() {
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1200);
 		chassis.setMaxVelocity(150);
-		chasis.moveDistance(0.04_m);
+		chassis.moveDistance(0.04_m);
 		chassis.moveDistance(-0.0325_m);
 		runTime = 2150;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
@@ -293,7 +317,7 @@ void autonomous() {
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
-		runTime = 2200;
+		runTime = 9000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
 		chassis.setMaxVelocity(120);
@@ -304,28 +328,25 @@ void autonomous() {
 		tray.set_zero_position(tray.get_position());
 		pros::Task trayAdj (trayAdjust, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		chassis.setMaxVelocity(180);
-		chassis.moveDistance(-0.97_m);
+		chassis.moveDistance(-0.92_m);
 		chassis.setMaxVelocity(100);
 		chassis.turnAngle((sideSelector)*-40_deg);
-		runTime = 2000;
-		runDelay = 100;
-		pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
 		chassis.setMaxVelocity(175);
 		chassis.moveDistance(1.07_m);
 		chassis.setMaxVelocity(100);
 		chassis.turnAngle((sideSelector)*135_deg);
+		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		runDelay = 500;
 		runTime = 700;
 		runSpeed = 50;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 		chassis.setMaxVelocity(150);
 		chassis.moveDistance(1.0_m);
-		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 	}
 	else if(autonMode == 2)
 	{
 		runTime = 1000;
-		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
+		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 		pros::delay(1200);
 		chassis.moveDistance(0.4_m);
 		chassis.setMaxVelocity(75);
@@ -343,6 +364,42 @@ void autonomous() {
 		runSpeed = 60;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 		tray.set_zero_position(tray.get_position());
+		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+	}
+	else if(autonMode == 3)
+	{
+		chassis.setMaxVelocity(125);
+		chassis.turnAngle(90_deg);
+	}
+	else if(autonMode == 4)
+	{
+		//Z path: Moves forward, moves diagonally, moves forward again, returns to corner
+		chassis.setMaxVelocity(100);
+		chassis.moveDistance(0.10_m);
+		chassis.moveDistance(-0.0975_m);
+		runTime = 900;
+		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
+		pros::delay(1000);
+		runTime = 9000;
+		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
+		pros::delay(100);
+		chassis.setMaxVelocity(120);
+		chassis.moveDistance(1.07_m);
+		chassis.setMaxVelocity(50);
+		chassis.turnAngle((sideSelector)*-40_deg);
+		chassis.setMaxVelocity(180);
+		chassis.moveDistance(-0.92_m);
+		chassis.setMaxVelocity(100);
+		chassis.turnAngle((sideSelector)*40_deg);
+		chassis.setMaxVelocity(175);
+		chassis.moveDistance(1.07_m);
+		runDelay = 500;
+		runTime = 700;
+		runSpeed = 50;
+		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
+		chassis.moveDistance(-1.07_m);
+		chassis.setMaxVelocity(100);
+		chassis.turnAngle((sideSelector)*135_deg);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 	}
 }
@@ -365,13 +422,16 @@ void opcontrol() {
 	std::cout << "op";
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
+	arm.set_brake_mode(MOTOR_BRAKE_HOLD);
+	tray.set_brake_mode(MOTOR_BRAKE_HOLD);
 	tray.set_brake_mode(MOTOR_BRAKE_HOLD);
 	tray.set_encoder_units(MOTOR_ENCODER_DEGREES);
 	tray.set_zero_position(tray.get_position());
+	arm.set_zero_position(arm.get_position());
 	//FILE* fileWrite = fopen("/usd/test.txt", "w");
 
 	while (true) {
-		pros::lcd::set_text(1,std::to_string(tray.get_position()));
+		pros::lcd::set_text(1,std::to_string(arm.get_position()));
 		std::cout << master.get_analog(ANALOG_LEFT_Y);
 		left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
 		left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
@@ -381,7 +441,7 @@ void opcontrol() {
 			arm.move_velocity(200);
 		}
 		else if (master.get_digital(DIGITAL_R2)) {
-			arm.move_velocity(-200);
+			arm.move_velocity(-100);
 		}
 		else {
 			arm.move_velocity(0);
@@ -419,6 +479,10 @@ void opcontrol() {
 		if(master.get_digital(DIGITAL_UP))
 		{
 			pros::Task trayMove (trayTaskOP, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Tray Move");
+		}
+		if(master.get_digital(DIGITAL_LEFT))
+		{
+			pros::Task armMove (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Arm Move");
 		}
 		//pros::lcd::set_text(1, std::to_string(time));
 		//double leftVelocity = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity())/2;

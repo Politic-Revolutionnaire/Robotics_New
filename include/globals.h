@@ -6,10 +6,10 @@
 #define RIGHT_WHEELS_PORT2_AUTO -2 //Bottom right
 #define LEFT_WHEELS_PORT1 3 //Top left
 #define LEFT_WHEELS_PORT2 4 //Bottom left
-#define ARM_PORT 7
+#define ARM_PORT 8
 #define INTAKE_PORT1 5
 #define INTAKE_PORT2 6
-#define TRAY_PORT 11
+#define TRAY_PORT 14
 
 extern pros::Controller master(pros::E_CONTROLLER_MASTER);
 extern pros::Motor left_motor1(LEFT_WHEELS_PORT1);
