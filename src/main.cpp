@@ -2,6 +2,7 @@
 #include "okapi/api.hpp"
 #include "globals.h"
 #include "api.h"
+#include "pros/api_legacy.h"
 
 /**
  * A callback function for LLEMU's center button.
@@ -63,21 +64,6 @@ void competition_initialize() {}
  */
 using namespace okapi;
 
-//deadports 1,7,10,12
-
-//Subject to change
-#define RIGHT_WHEELS_PORT1_OP 13
-#define RIGHT_WHEELS_PORT2_OP 2
-#define RIGHT_WHEELS_PORT1_AUTO -13 //Top right
-#define RIGHT_WHEELS_PORT2_AUTO -2 //Bottom right
-#define LEFT_WHEELS_PORT1 3 //Top left
-#define LEFT_WHEELS_PORT2 4 //Bottom left
-#define ARM_PORT 8
-#define INTAKE_PORT1 5
-#define INTAKE_PORT2 6
-#define TRAY_PORT 14
-#define BUTTON_PORT 3
-
 const double liftP = 1.0;
 const double liftI = 0.001;
 const double liftD = 0.1;
@@ -88,8 +74,8 @@ int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
 //0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
-int autonMode = 4;
-int sideSelector = 1;//1 for red, -1 for blue
+int autonMode = 2;
+int sideSelector = -1;//1 for red, -1 for blue
 int stackDelay = 500;
 int stageDelay = 1000;
 
@@ -137,21 +123,23 @@ void trayAdjust(void* param) {
 void trayTask(void* param) {
 	//2475
 	//1453
-	pros::delay(stackDelay);
+	tray.set_zero_position(tray.get_position());
 	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 1453)
+	while(tray.get_position() < trayPos + 2450)
 	{
 		tray.move_velocity(150);
 	}
-	tray.move_velocity(0);
-	pros::delay(stageDelay);
-	while(tray.get_position() < trayPos + 2175)
+	while(tray.get_position() < trayPos + 2650)
 	{
-		tray.move_velocity(90);
+		tray.move_velocity(100);
+		intake1.move_velocity(100);
+		intake2.move_velocity(100);
 	}
 	tray.move_velocity(0);
+	intake1.move_velocity(0);
+	intake2.move_velocity(0);
 	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
-	pros::delay(350);
+	pros::delay(250);
 	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 }
 
@@ -189,7 +177,7 @@ void armTask(void* param) {
 	tray.move_velocity(0);
 	arm.set_zero_position(arm.get_position());
 	int armPos = arm.get_position();
-	while(arm.get_position() < armPos + 945)
+	while(arm.get_position() < armPos + 900)
 	{
 		arm.move_velocity(200);
 	}
@@ -251,11 +239,14 @@ void autonomous() {
 		{LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},
 		{RIGHT_WHEELS_PORT1_AUTO,RIGHT_WHEELS_PORT2_AUTO},
 		AbstractMotor::gearset::green, //Gearset (200rpm)
-		{4.105_in, 9.55_in}
+		{4.095_in, 9.75_in}
 		//Wheel size, wheelbase width orig 4.125, 12.5
 		//±0.005m for 4.105in wheel size
 		//±0.5° for 9.55in wheelbase
 		//Wheelbase diameter 12.25in, wheelbase back 10in, wheelbase fron 11.25
+		//To adjust distance travelled decrease wheel size to increase distance and vice versa
+		//To adjust turn angle increase chassis size to increase turn angle
+		//On high velocity a 90 turn is 10.2
 	);
 
 	//TODO profile robot to determine actual values for this
@@ -297,10 +288,10 @@ void autonomous() {
 		runDelay = 200;
 		pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
 		pros::c::delay(100);
-		chassis.setMaxVelocity(150);
+		chassis.setMaxVelocity(125);
 		chassis.moveDistance(1.3_m);
 		chassis.setMaxVelocity(200);
-		chassis.moveDistance(-1.0_m);
+		chassis.moveDistance(-1.07_m);
 		chassis.setMaxVelocity(50);
 		chassis.turnAngle((sideSelector)*-135_deg);
 		runDelay = 700;
@@ -350,15 +341,14 @@ void autonomous() {
 		runTime = 1000;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 		pros::delay(1200);
-		chassis.moveDistance(0.4_m);
-		chassis.setMaxVelocity(75);
-		chassis.moveDistance(-0.325);
 		runTime = 10000;
 		pros::Task insome (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Insome");
-		chassis.setMaxVelocity(150);
-		chassis.moveDistance(1.07_m);
+		chassis.setMaxVelocity(175);
+		chassis.moveDistance(1.10_m);
+		pros::delay(500);
+		chassis.moveDistance(-0.15_m);
 		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*-128_deg);//Measured is 135°
+		chassis.turnAngle((sideSelector)*-137_deg);//Measured is 135°
 		chassis.setMaxVelocity(150);
 		chassis.moveDistance(1.1_m);
 		runDelay = 0;
@@ -370,39 +360,40 @@ void autonomous() {
 	}
 	else if(autonMode == 3)
 	{
-		chassis.setMaxVelocity(125);
+		chassis.setMaxVelocity(90);
 		chassis.turnAngle(90_deg);
 	}
 	else if(autonMode == 4)
 	{
 		//Z path: Moves forward, moves diagonally, moves forward again, returns to corner
 		chassis.setMaxVelocity(100);
-		chassis.moveDistance(0.10_m);
-		chassis.moveDistance(-0.0975_m);
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
 		runTime = 9000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
-		chassis.setMaxVelocity(120);
+		chassis.setMaxVelocity(150);
 		chassis.moveDistance(1.07_m);
-		chassis.setMaxVelocity(50);
+		chassis.moveDistance(-0.15_m);
+		chassis.setMaxVelocity(75);
 		chassis.turnAngle((sideSelector)*-40_deg);
-		chassis.setMaxVelocity(180);
-		chassis.moveDistance(-0.92_m);
-		chassis.setMaxVelocity(100);
+		chassis.setMaxVelocity(120);
+		chassis.moveDistance(-0.90_m);
+		chassis.setMaxVelocity(75);
 		chassis.turnAngle((sideSelector)*40_deg);
-		chassis.setMaxVelocity(175);
-		chassis.moveDistance(1.07_m);
+		chassis.setMaxVelocity(150);
+		chassis.moveDistance(0.90_m);
 		runDelay = 500;
 		runTime = 700;
 		runSpeed = 50;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		chassis.moveDistance(-1.07_m);
-		chassis.setMaxVelocity(100);
-		chassis.turnAngle((sideSelector)*135_deg);
+		chassis.moveDistance(-0.70_m);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		chassis.setMaxVelocity(50);
+		chassis.turnAngle((sideSelector)*120_deg);
+		chassis.setMaxVelocity(100);
+		chassis.moveDistance(0.5_m);
 	}
 }
 
@@ -434,7 +425,6 @@ void opcontrol() {
 
 	while (true) {
 		pros::lcd::set_text(1,std::to_string(arm.get_position()));
-		//pros::lcd::set_text(1,std::to_string(digitalRead(BUTTON_PORT)));
 		std::cout << master.get_analog(ANALOG_LEFT_Y);
 		left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
 		left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
@@ -461,7 +451,7 @@ void opcontrol() {
 			intake1.move_velocity(0);
 			intake2.move_velocity(0);
 		}
-		if(master.get_digital(DIGITAL_B)) {
+		if(master.get_digital(DIGITAL_B) && button.get_value() != 1) {
 			tray.move_velocity(-200);
 		}
 		else if (master.get_digital(DIGITAL_X)) {
