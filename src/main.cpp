@@ -78,6 +78,8 @@ int autonMode = 2;
 int sideSelector = -1;//1 for red, -1 for blue
 int stackDelay = 500;
 int stageDelay = 1000;
+bool trayUp = false;
+bool armUp = false;
 
 void backwardTask(void* param) {
 	int time = pros::c::millis();
@@ -146,42 +148,76 @@ void trayTask(void* param) {
 void trayTaskOP(void* param) {
 	//2475
 	//1453
-	tray.set_zero_position(tray.get_position());
-	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 1900)
+	if(!trayUp)
 	{
-		tray.move_velocity(125);
+		tray.set_zero_position(tray.get_position());
+		int trayPos = tray.get_position();
+		while(tray.get_position() < trayPos + 1900)
+		{
+			tray.move_velocity(125);
+		}
+		while(tray.get_position() < trayPos + 2650)
+		{
+			tray.move_velocity(75);
+			intake1.move_velocity(100);
+			intake2.move_velocity(100);
+		}
+		tray.move_velocity(0);
+		intake1.move_velocity(0);
+		intake2.move_velocity(0);
+		pros::delay(500);
+		pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+		pros::delay(250);
+		pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
+		trayUp = true;
 	}
-	while(tray.get_position() < trayPos + 2650)
+	else
 	{
-		tray.move_velocity(75);
-		intake1.move_velocity(100);
-		intake2.move_velocity(100);
+		tray.set_zero_position(tray.get_position());
+		while(button.get_value() == 0)
+		{
+			tray.move_velocity(-150);
+		}
+		tray.move_velocity(0);
+		trayUp = false;
 	}
-	tray.move_velocity(0);
-	intake1.move_velocity(0);
-	intake2.move_velocity(0);
-	pros::delay(500);
-	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
-	pros::delay(250);
-	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 }
 
 void armTask(void* param) {
-	tray.set_zero_position(tray.get_position());
-	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 1180)
+	if(!armUp)
 	{
-		tray.move_velocity(175);
+		tray.set_zero_position(tray.get_position());
+		int trayPos = tray.get_position();
+		while(tray.get_position() < trayPos + 1180)
+		{
+			tray.move_velocity(175);
+		}
+		tray.move_velocity(0);
+		arm.set_zero_position(arm.get_position());
+		int armPos = arm.get_position();
+		while(arm.get_position() < armPos + 900)
+		{
+			arm.move_velocity(200);
+		}
+		arm.move_velocity(0);
+		armUp = true;
 	}
-	tray.move_velocity(0);
-	arm.set_zero_position(arm.get_position());
-	int armPos = arm.get_position();
-	while(arm.get_position() < armPos + 900)
+	else
 	{
-		arm.move_velocity(200);
+		int armPos = arm.get_position();
+		while(arm.get_position() > armPos - 900)
+		{
+			arm.move_velocity(-200);
+		}
+		arm.move_velocity(0);
+		int trayPos = tray.get_position();
+		while(tray.get_position() > trayPos - 1180)
+		{
+			tray.move_velocity(-175);
+		}
+		tray.move_velocity(0);
+		armUp = false;
 	}
-	arm.move_velocity(0);
 }
 
 void intake(void* param) {
