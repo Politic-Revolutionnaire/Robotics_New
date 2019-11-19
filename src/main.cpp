@@ -74,16 +74,15 @@ int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
 //0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
-int autonMode = 2;
+int autonMode = 5;
 int sideSelector = -1;//1 for red, -1 for blue
 int stackDelay = 500;
 int stageDelay = 1000;
-bool trayUp = false;
-bool armUp = false;
+bool toggleControl = true;
 
 void backwardTask(void* param) {
 	int time = pros::c::millis();
-	while(pros::c::millis() - time <= 1500)
+	while(pros::c::millis() - time <= 500)
 	{
 		left_motor1.move_velocity(-100);
 		left_motor2.move_velocity(-100);
@@ -98,7 +97,7 @@ void backwardTask(void* param) {
 
 void outtakeTask(void* param) {
 	int time = pros::c::millis();
-	while(pros::c::millis() - time <= 1500)
+	while(pros::c::millis() - time <= 750)
 	{
 		intake1.move_velocity(-125);
 		intake2.move_velocity(-125);
@@ -148,76 +147,42 @@ void trayTask(void* param) {
 void trayTaskOP(void* param) {
 	//2475
 	//1453
-	if(!trayUp)
+	tray.set_zero_position(tray.get_position());
+	int trayPos = tray.get_position();
+	while(tray.get_position() < trayPos + 1900)
 	{
-		tray.set_zero_position(tray.get_position());
-		int trayPos = tray.get_position();
-		while(tray.get_position() < trayPos + 1900)
-		{
-			tray.move_velocity(125);
-		}
-		while(tray.get_position() < trayPos + 2650)
-		{
-			tray.move_velocity(75);
-			intake1.move_velocity(100);
-			intake2.move_velocity(100);
-		}
-		tray.move_velocity(0);
-		intake1.move_velocity(0);
-		intake2.move_velocity(0);
-		pros::delay(500);
-		pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
-		pros::delay(250);
-		pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
-		trayUp = true;
+		tray.move_velocity(125);
 	}
-	else
+	while(tray.get_position() < trayPos + 2650)
 	{
-		tray.set_zero_position(tray.get_position());
-		while(button.get_value() == 0)
-		{
-			tray.move_velocity(-150);
-		}
-		tray.move_velocity(0);
-		trayUp = false;
+		tray.move_velocity(75);
+		intake1.move_velocity(100);
+		intake2.move_velocity(100);
 	}
+	tray.move_velocity(0);
+	intake1.move_velocity(0);
+	intake2.move_velocity(0);
+	pros::delay(500);
+	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+	pros::delay(250);
+	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 }
 
 void armTask(void* param) {
-	if(!armUp)
+	tray.set_zero_position(tray.get_position());
+	int trayPos = tray.get_position();
+	while(tray.get_position() < trayPos + 1180)
 	{
-		tray.set_zero_position(tray.get_position());
-		int trayPos = tray.get_position();
-		while(tray.get_position() < trayPos + 1180)
-		{
-			tray.move_velocity(175);
-		}
-		tray.move_velocity(0);
-		arm.set_zero_position(arm.get_position());
-		int armPos = arm.get_position();
-		while(arm.get_position() < armPos + 900)
-		{
-			arm.move_velocity(200);
-		}
-		arm.move_velocity(0);
-		armUp = true;
+		tray.move_velocity(175);
 	}
-	else
+	tray.move_velocity(0);
+	arm.set_zero_position(arm.get_position());
+	int armPos = arm.get_position();
+	while(arm.get_position() < armPos + 800)
 	{
-		int armPos = arm.get_position();
-		while(arm.get_position() > armPos - 900)
-		{
-			arm.move_velocity(-200);
-		}
-		arm.move_velocity(0);
-		int trayPos = tray.get_position();
-		while(tray.get_position() > trayPos - 1180)
-		{
-			tray.move_velocity(-175);
-		}
-		tray.move_velocity(0);
-		armUp = false;
+		arm.move_velocity(200);
 	}
+	arm.move_velocity(0);
 }
 
 void intake(void* param) {
@@ -431,6 +396,34 @@ void autonomous() {
 		chassis.setMaxVelocity(100);
 		chassis.moveDistance(0.5_m);
 	}
+	else if (autonMode == 5) {
+		runTime = 900;
+		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
+		pros::delay(1000);
+		runTime = 5000;
+		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
+		pros::delay(100);
+		chassis.setMaxVelocity(150);
+		chassis.moveDistance(3.0_m);
+		chassis.setMaxVelocity(75);
+		chassis.turnAngle(45_deg);
+		chassis.setMaxVelocity(150);
+		chassis.moveDistance(0.5_m);
+		runTime = 700;
+		runSpeed = 50;
+		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
+		pros::delay(750);
+		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		pros::delay(1000);
+		chassis.setMaxVelocity(75);
+		chassis.turnAngle(-135_deg);
+		runTime = 500;
+		pros::Task consume2 (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume2");
+		chassis.setMaxVelocity(150);
+		chassis.moveDistance(0.7_m);
+		pros::Task armsome (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Arm Move");
+		
+	}
 }
 
 /**
@@ -458,67 +451,138 @@ void opcontrol() {
 	tray.set_zero_position(tray.get_position());
 	arm.set_zero_position(arm.get_position());
 	//FILE* fileWrite = fopen("/usd/test.txt", "w");
-
-	while (true) {
-		pros::lcd::set_text(1,std::to_string(arm.get_position()));
-		std::cout << master.get_analog(ANALOG_LEFT_Y);
-		left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
-		left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
-		right_motor1.move(master.get_analog(ANALOG_RIGHT_Y));
-		right_motor2.move(master.get_analog(ANALOG_RIGHT_Y));
-		if (master.get_digital(DIGITAL_R1)) {
-			arm.move_velocity(200);
+	if(toggleControl)
+	{
+		while (true) {
+			pros::lcd::set_text(1,std::to_string(arm.get_position()));
+			std::cout << master.get_analog(ANALOG_LEFT_Y);
+			left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
+			left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
+			right_motor1.move(master.get_analog(ANALOG_RIGHT_Y));
+			right_motor2.move(master.get_analog(ANALOG_RIGHT_Y));
+			if (master.get_digital(DIGITAL_R1)) {
+				arm.move_velocity(200);
+			}
+			else if (master.get_digital(DIGITAL_R2)) {
+				arm.move_velocity(-100);
+			}
+			else {
+				arm.move_velocity(0);
+			}
+			if (master.get_digital(DIGITAL_L1)) {
+				intake1.move_velocity(200);//Max rpm
+				intake2.move_velocity(200);
+			}
+			else if (master.get_digital(DIGITAL_L2)) {
+				intake1.move_velocity(-150);//outtake
+				intake2.move_velocity(-150);
+			}
+			else {
+				intake1.move_velocity(0);
+				intake2.move_velocity(0);
+			}
+			if(button.get_value() != 1 && master.get_digital(DIGITAL_B)) {
+				tray.move_velocity(-200);
+			}
+			else if (master.get_digital(DIGITAL_X)) {
+				tray.move_velocity(200);
+			}
+			else if (master.get_digital(DIGITAL_A)) {
+				tray.move_velocity(50);
+			}
+			else {
+				tray.move_velocity(0);
+			}
+			if(master.get_digital(DIGITAL_DOWN))
+			{
+				pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+				pros::delay(250);
+				pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
+			}
+			if(master.get_digital(DIGITAL_UP))
+			{
+				pros::Task trayMove (trayTaskOP, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Tray Move");
+			}
+			if(master.get_digital(DIGITAL_LEFT))
+			{
+				pros::Task armMove (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Arm Move");
+			}
+			//pros::lcd::set_text(1, std::to_string(time));
+			//double leftVelocity = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity())/2;
+			//double rightVelocity = (right_motor1.get_actual_velocity() + right_motor2.get_actual_velocity())/2;
+			//double linearVelocity = (leftVelocity+rightVelocity)/2;
+			//std::string output = std::to_string(leftVelocity) + " " + std::to_string(rightVelocity) + " " + std::to_string(linearVelocity);
+			//fputs(output.c_str(), fileWrite);
+			pros::delay(10);
 		}
-		else if (master.get_digital(DIGITAL_R2)) {
-			arm.move_velocity(-100);
-		}
-		else {
-			arm.move_velocity(0);
-		}
-		if (master.get_digital(DIGITAL_L1)) {
-			intake1.move_velocity(200);//Max rpm
-			intake2.move_velocity(200);
-		}
-		else if (master.get_digital(DIGITAL_L2)) {
-			intake1.move_velocity(-150);//outtake
-			intake2.move_velocity(-150);
-		}
-		else {
-			intake1.move_velocity(0);
-			intake2.move_velocity(0);
-		}
-		if(master.get_digital(DIGITAL_B) && button.get_value() != 1) {
-			tray.move_velocity(-200);
-		}
-		else if (master.get_digital(DIGITAL_X)) {
-			tray.move_velocity(200);
-		}
-		else if (master.get_digital(DIGITAL_A)) {
-			tray.move_velocity(50);
-		}
-		else {
-			tray.move_velocity(0);
-		}
-		if(master.get_digital(DIGITAL_DOWN))
-		{
-			pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
-			pros::delay(250);
-			pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
-		}
-		if(master.get_digital(DIGITAL_UP))
-		{
-			pros::Task trayMove (trayTaskOP, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Tray Move");
-		}
-		if(master.get_digital(DIGITAL_LEFT))
-		{
-			pros::Task armMove (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Arm Move");
-		}
-		//pros::lcd::set_text(1, std::to_string(time));
-		//double leftVelocity = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity())/2;
-		//double rightVelocity = (right_motor1.get_actual_velocity() + right_motor2.get_actual_velocity())/2;
-		//double linearVelocity = (leftVelocity+rightVelocity)/2;
-		//std::string output = std::to_string(leftVelocity) + " " + std::to_string(rightVelocity) + " " + std::to_string(linearVelocity);
-		//fputs(output.c_str(), fileWrite);
-		pros::delay(10);
 	}
+	else {
+		while (true) {
+			pros::lcd::set_text(1,std::to_string(arm.get_position()));
+			std::cout << master.get_analog(ANALOG_LEFT_Y);
+			int power = master.get_analog(ANALOG_LEFT_Y);
+			int turn = master.get_analog(ANALOG_RIGHT_X);
+			int left = power + turn;
+			int right = power - turn;
+			left_motor1.move(left);
+			left_motor2.move(left);
+			right_motor1.move(right);
+			right_motor2.move(right);
+			if (master.get_digital(DIGITAL_R1)) {
+				arm.move_velocity(200);
+			}
+			else if (master.get_digital(DIGITAL_R2)) {
+				arm.move_velocity(-100);
+			}
+			else {
+				arm.move_velocity(0);
+			}
+			if (master.get_digital(DIGITAL_L1)) {
+				intake1.move_velocity(200);//Max rpm
+				intake2.move_velocity(200);
+			}
+			else if (master.get_digital(DIGITAL_L2)) {
+				intake1.move_velocity(-150);//outtake
+				intake2.move_velocity(-150);
+			}
+			else {
+				intake1.move_velocity(0);
+				intake2.move_velocity(0);
+			}
+			if(button.get_value() != 1 && master.get_digital(DIGITAL_B)) {
+				tray.move_velocity(-200);
+			}
+			else if (master.get_digital(DIGITAL_X)) {
+				tray.move_velocity(200);
+			}
+			else if (master.get_digital(DIGITAL_A)) {
+				tray.move_velocity(50);
+			}
+			else {
+				tray.move_velocity(0);
+			}
+			if(master.get_digital(DIGITAL_DOWN))
+			{
+				pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+				pros::delay(250);
+				pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
+			}
+			if(master.get_digital(DIGITAL_UP))
+			{
+				pros::Task trayMove (trayTaskOP, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Tray Move");
+			}
+			if(master.get_digital(DIGITAL_LEFT))
+			{
+				pros::Task armMove (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Arm Move");
+			}
+			//pros::lcd::set_text(1, std::to_string(time));
+			//double leftVelocity = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity())/2;
+			//double rightVelocity = (right_motor1.get_actual_velocity() + right_motor2.get_actual_velocity())/2;
+			//double linearVelocity = (leftVelocity+rightVelocity)/2;
+			//std::string output = std::to_string(leftVelocity) + " " + std::to_string(rightVelocity) + " " + std::to_string(linearVelocity);
+			//fputs(output.c_str(), fileWrite);
+			pros::delay(10);
+		}
+	}
+
 }
