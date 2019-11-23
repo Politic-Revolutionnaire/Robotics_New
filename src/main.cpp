@@ -126,13 +126,13 @@ void trayTask(void* param) {
 	//1453
 	tray.set_zero_position(tray.get_position());
 	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 2450)
+	while(tray.get_position() < trayPos + 2100)//2450
 	{
-		tray.move_velocity(150);
+		tray.move_velocity(200);//150
 	}
-	while(tray.get_position() < trayPos + 2650)
+	while(tray.get_position() < trayPos + 2800)//2650
 	{
-		tray.move_velocity(100);
+		tray.move_velocity(50);//100
 		intake1.move_velocity(100);
 		intake2.move_velocity(100);
 	}
@@ -149,13 +149,13 @@ void trayTaskOP(void* param) {
 	//1453
 	tray.set_zero_position(tray.get_position());
 	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 1900)
+	while(tray.get_position() < trayPos + 2100)//1900
 	{
-		tray.move_velocity(125);
+		tray.move_velocity(200);//125
 	}
-	while(tray.get_position() < trayPos + 2650)
+	while(tray.get_position() < trayPos + 2800)//2650
 	{
-		tray.move_velocity(75);
+		tray.move_velocity(50);//75
 		intake1.move_velocity(100);
 		intake2.move_velocity(100);
 	}
@@ -247,7 +247,6 @@ void autonomous() {
 		//Wheelbase diameter 12.25in, wheelbase back 10in, wheelbase fron 11.25
 		//To adjust distance travelled decrease wheel size to increase distance and vice versa
 		//To adjust turn angle increase chassis size to increase turn angle
-		//On high velocity a 90 turn is 10.2
 	);
 
 	//TODO profile robot to determine actual values for this
@@ -403,26 +402,34 @@ void autonomous() {
 		runTime = 5000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
-		chassis.setMaxVelocity(150);
-		chassis.moveDistance(3.0_m);
+		chassis.setMaxVelocity(100);
+		chassis.moveDistance(2.8_m);
 		chassis.setMaxVelocity(75);
-		chassis.turnAngle(45_deg);
+		chassis.turnAngle((sideSelector)*45_deg);
 		chassis.setMaxVelocity(150);
 		chassis.moveDistance(0.5_m);
+		runDelay = 0;
 		runTime = 700;
 		runSpeed = 50;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 		pros::delay(750);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		pros::delay(1000);
+		/*
+		while(button.get_value() != 1)
+		{
+			tray.move_velocity(-200);
+		}
 		chassis.setMaxVelocity(75);
-		chassis.turnAngle(-135_deg);
+		chassis.moveDistance(-0.2_m);
+		chassis.turnAngle((sideSelector)*135_deg);
 		runTime = 500;
 		pros::Task consume2 (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume2");
 		chassis.setMaxVelocity(150);
 		chassis.moveDistance(0.7_m);
 		pros::Task armsome (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Arm Move");
-		
+		chassis.moveDistance(0.1_m);4
+		*/
 	}
 }
 
