@@ -74,8 +74,8 @@ int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
 //0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
-int autonMode = 5;
-int sideSelector = -1;//1 for red, -1 for blue
+int autonMode = 4;
+int sideSelector = 1;//1 for red, -1 for blue
 int stackDelay = 500;
 int stageDelay = 1000;
 bool toggleControl = true;
@@ -126,13 +126,13 @@ void trayTask(void* param) {
 	//1453
 	tray.set_zero_position(tray.get_position());
 	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 2100)//2450
+	while(tray.get_position() < trayPos + 2500)//2450
 	{
 		tray.move_velocity(200);//150
 	}
-	while(tray.get_position() < trayPos + 2800)//2650
+	while(tray.get_position() < trayPos + 2700)//2650
 	{
-		tray.move_velocity(50);//100
+		tray.move_velocity(125);//100
 		intake1.move_velocity(100);
 		intake2.move_velocity(100);
 	}
@@ -370,7 +370,7 @@ void autonomous() {
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
-		runTime = 9000;
+		runTime = 10000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
 		chassis.setMaxVelocity(150);
@@ -378,22 +378,23 @@ void autonomous() {
 		chassis.moveDistance(-0.15_m);
 		chassis.setMaxVelocity(75);
 		chassis.turnAngle((sideSelector)*-40_deg);
-		chassis.setMaxVelocity(120);
+		chassis.setMaxVelocity(175);
 		chassis.moveDistance(-0.90_m);
 		chassis.setMaxVelocity(75);
-		chassis.turnAngle((sideSelector)*40_deg);
+		chassis.turnAngle((sideSelector)*45_deg);
 		chassis.setMaxVelocity(150);
-		chassis.moveDistance(0.90_m);
-		runDelay = 500;
-		runTime = 700;
-		runSpeed = 50;
+		chassis.moveDistance(1.07_m);
+		runDelay = 0;
+		runTime = 350;
+		runSpeed = 100;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		chassis.moveDistance(-0.70_m);
+		chassis.setMaxVelocity(200);
+		chassis.moveDistance(-0.77_m);
+		chassis.setMaxVelocity(75);
+		chassis.turnAngle((sideSelector)*125_deg);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
-		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*120_deg);
-		chassis.setMaxVelocity(100);
-		chassis.moveDistance(0.5_m);
+		chassis.setMaxVelocity(125);
+		chassis.moveDistance(0.35_m);
 	}
 	else if (autonMode == 5) {
 		runTime = 900;
@@ -409,11 +410,12 @@ void autonomous() {
 		chassis.setMaxVelocity(150);
 		chassis.moveDistance(0.5_m);
 		runDelay = 0;
-		runTime = 700;
+		runTime = 200;
 		runSpeed = 50;
-		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		pros::delay(750);
-		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
+		pros::Task insome (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "insome");
+		pros::delay(250);
+		//pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
+		pros::Task traySome (trayTaskOP, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		pros::delay(1000);
 		/*
 		while(button.get_value() != 1)
