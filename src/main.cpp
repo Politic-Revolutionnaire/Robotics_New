@@ -23,8 +23,8 @@ void on_center_button() {
 using namespace okapi;
 
 auto chassis = ChassisControllerFactory::create(
-	{-LEFT_WHEELS_PORT1, -LEFT_WHEELS_PORT2},
-	{-RIGHT_WHEELS_PORT1_AUTO, -RIGHT_WHEELS_PORT2_AUTO},
+	{LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},
+	{RIGHT_WHEELS_PORT1_AUTO, RIGHT_WHEELS_PORT2_AUTO},
 	AbstractMotor::gearset::green, //Gearset (200rpm)
 	{4.095_in, 9.75_in}
 	//Wheel size, wheelbase width orig 4.125, 12.5
@@ -42,6 +42,8 @@ auto profile = AsyncControllerFactory::motionProfile(
 	chassis //Chassis controller
 );
 
+auto trayyy = AsyncControllerFactory::posIntegrated(TRAY_PORT, MOTOR_ENCODER_DEGREES);
+
 const double liftP = 1.0;
 const double liftI = 0.001;
 const double liftD = 0.1;
@@ -52,11 +54,11 @@ int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
 //0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
-int autonMode = 4;
-int sideSelector = 1;//-1 for red, 1 for blue
+int autonMode = 5;
+int sideSelector = -1;//1 for red, -1 for blue
 int stackDelay = 500;
 int stageDelay = 1000;
-bool toggleControl = false;
+bool toggleControl = true;
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -65,7 +67,7 @@ bool toggleControl = false;
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	profile.generatePath({Point{0_m, 0_m, 0_deg},Point{0.82_m, 0.95_m, 0_deg}}, "S");
+	profile.generatePath({Point{0_m, 0_m, 0_deg},Point{0.79_m, (sideSelector)*-0.97_m, 0_deg}}, "S");
 	pros::lcd::initialize();
 	pros::lcd::set_text(1, "Hello PROS User!");
 
@@ -105,10 +107,10 @@ void backwardTask(void* param) {
 	int time = pros::c::millis();
 	while(pros::c::millis() - time <= 750)
 	{
-		left_motor1.move_velocity(75);
-		left_motor2.move_velocity(75);
-		right_motor1.move_velocity(75);
-		right_motor2.move_velocity(75);
+		left_motor1.move_velocity(-75);
+		left_motor2.move_velocity(-75);
+		right_motor1.move_velocity(-75);
+		right_motor2.move_velocity(-75);
 	}
 	left_motor1.move_velocity(0);
 	left_motor2.move_velocity(0);
@@ -142,16 +144,22 @@ void trayAdjust(void* param) {
 	tray.move_velocity(0);
 }
 
+void trayTaskAuto(void* param) {
+	trayyy.tarePosition();
+	trayyy.setTarget(2700);
+	trayyy.waitUntilSettled();
+}
+
 void trayTask(void* param) {
 	//2475
 	//1453
 	tray.set_zero_position(tray.get_position());
 	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 2500)//2450
+	while(tray.get_position() < trayPos + 2100)//2450
 	{
 		tray.move_velocity(200);//150
 	}
-	while(tray.get_position() < trayPos + 2700)//2650
+	while(tray.get_position() < trayPos + 2475)//2650
 	{
 		tray.move_velocity(125);//100
 		intake1.move_velocity(100);
@@ -160,8 +168,8 @@ void trayTask(void* param) {
 	tray.move_velocity(0);
 	intake1.move_velocity(0);
 	intake2.move_velocity(0);
-	//pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
-	//pros::delay(250);
+	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
+	pros::delay(125);
 	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 }
 
@@ -170,22 +178,21 @@ void trayTaskOP(void* param) {
 	//1453
 	tray.set_zero_position(tray.get_position());
 	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 2100)//1900
+	while(tray.get_position() < trayPos + 2050)//1900
 	{
 		tray.move_velocity(200);//125
 	}
-	while(tray.get_position() < trayPos + 2800)//2650
+	while(tray.get_position() < trayPos + 2475)//2650
 	{
-		tray.move_velocity(50);//75
+		tray.move_velocity(90);//75
 		intake1.move_velocity(100);
 		intake2.move_velocity(100);
 	}
 	tray.move_velocity(0);
 	intake1.move_velocity(0);
 	intake2.move_velocity(0);
-	pros::delay(500);
 	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
-	pros::delay(250);
+	pros::delay(150);
 	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 }
 
@@ -364,51 +371,43 @@ void autonomous() {
 	{
 		//Z path: Moves forward, moves diagonally, moves forward again, returns to corner
 		chassis.setMaxVelocity(100);
-		runTime = 900;
+		runTime = 700;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
-		pros::delay(1000);
-		runTime = 10000;
+		pros::delay(800);
+		runTime = 7600;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
 		chassis.setMaxVelocity(150);
-		chassis.moveDistance(-1.10_m);
-		chassis.moveDistance(0.18_m);
-		profile.setTarget("S");
+		chassis.moveDistance(1.13_m);
+		chassis.moveDistance(-0.15_m);
+		profile.setTarget("S", true);
 		profile.waitUntilSettled();
-		/*
-		chassis.setMaxVelocity(75);
-		chassis.turnAngle((sideSelector)*-40_deg);
-		chassis.setMaxVelocity(175);
-		chassis.moveDistance(-0.90_m);
-		chassis.setMaxVelocity(75);
-		chassis.turnAngle((sideSelector)*45_deg);
-		*/
-		chassis.setMaxVelocity(120);
-		chassis.moveDistance(-1.25_m);
+		chassis.setMaxVelocity(135);
+		chassis.moveDistance(1.24_m);
+		chassis.setMaxVelocity(180);
+		chassis.moveDistance(-0.65_m);
 		runDelay = 0;
-		runTime = 350;
-		runSpeed = 100;
+		runTime = 300;
+		runSpeed = 75;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		chassis.setMaxVelocity(200);
-		chassis.moveDistance(0.65_m);
 		chassis.setMaxVelocity(75);
 		chassis.turnAngle((sideSelector)*125_deg);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		chassis.setMaxVelocity(125);
-		chassis.moveDistance(-0.35_m);
+		chassis.moveDistance(0.45_m);
 	}
 	else if (autonMode == 5) {
-		runTime = 900;
+		runTime = 700;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
-		pros::delay(1000);
-		runTime = 5000;
+		pros::delay(800);
+		runTime = 6000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
 		chassis.setMaxVelocity(100);
 		chassis.moveDistance(2.8_m);
 		chassis.setMaxVelocity(75);
 		chassis.turnAngle((sideSelector)*45_deg);
-		chassis.setMaxVelocity(150);
+		chassis.setMaxVelocity(125);
 		chassis.moveDistance(0.5_m);
 		runDelay = 0;
 		runTime = 200;
@@ -419,6 +418,10 @@ void autonomous() {
 		pros::Task traySome (trayTaskOP, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		pros::delay(1000);
 		/*
+		0.356 m back
+		-135
+		run intake
+		forward 0.05m
 		while(button.get_value() != 1)
 		{
 			tray.move_velocity(-200);
@@ -450,7 +453,7 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	pros::lcd::set_text(1, "Op!");
+	pros::lcd::set_text(1, "OP");
 	std::cout << "op";
 	intake1.set_brake_mode(MOTOR_BRAKE_HOLD);
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
