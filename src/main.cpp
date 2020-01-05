@@ -22,31 +22,40 @@ void on_center_button() {
 
 using namespace okapi;
 
-auto chassis = ChassisControllerFactory::create(
-	{LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},
-	{RIGHT_WHEELS_PORT1_AUTO, RIGHT_WHEELS_PORT2_AUTO},
-	AbstractMotor::gearset::green, //Gearset (200rpm)
-	{4.095_in, 9.75_in}
-	//Wheel size, wheelbase width orig 4.125, 12.5
-	//±0.005m for 4.105in wheel size
-	//±0.5° for 9.55in wheelbase
-	//Wheelbase diameter 12.25in, wheelbase back 10in, wheelbase fron 11.25
-	//To adjust distance travelled decrease wheel size to increase distance and vice versa
-	//To adjust turn angle increase chassis size to increase turn angle
-);
+//Wheel size, wheelbase width orig 4.125, 12.5
+//±0.005m for 4.105in wheel size
+//±0.5° for 9.55in wheelbase
+//Wheelbase diameter 12.25in, wheelbase back 10in, wheelbase fron 11.25
+//To adjust distance travelled decrease wheel size to increase distance and vice versa
+//To adjust turn angle increase chassis size to increase turn angle
+auto chassis = ChassisControllerBuilder()
+	.withMotors({LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},{RIGHT_WHEELS_PORT1_AUTO, RIGHT_WHEELS_PORT2_AUTO})
+	.withDimensions(AbstractMotor::gearset::green, {{4.095_in, 9.75_in}, imev5GreenTPR})
+	.withGains(
+		{0.001, 0, 0.0001}, //Distance
+		{0.001, 0, 0.0001}, //Turn
+		{0.001, 0, 0.0001}) //Angle
+	.withDerivativeFilters(
+		{std::make_unique<AverageFilter<3>>()},
+		{std::make_unique<AverageFilter<3>>()},
+		{std::make_unique<AverageFilter<3>>()})
+	.withOdometry()
+	.withLogger(
+		std::make_shared<Logger>(
+			TimeUtilFactory::createDefault().getTimer(),
+			"/usd/logging.txt",
+			Logger::LogLevel::debug
+		)
+	)
+	.buildOdometry();
 
-auto profile = AsyncControllerFactory::motionProfile(
-	1.15, //Max linear velocity
-	5.275, //Max linear acceleration
-	6, //Max linear jerk
-	chassis //Chassis controller
-);
-
-auto trayyy = AsyncControllerFactory::posIntegrated(TRAY_PORT, MOTOR_ENCODER_DEGREES);
-
-const double liftP = 1.0;
-const double liftI = 0.001;
-const double liftD = 0.1;
+auto profile = AsyncMotionProfileControllerBuilder()
+	.withLimits({
+		1.15, //Max linear velocity
+		5.275, //Max linear acceleration
+		6}) //Max linear jerk
+	.withOutput(chassis)
+	.buildMotionProfileController();
 
 int runTime = 1500;
 int runSpeed = 200; //rpm
@@ -74,7 +83,7 @@ bool trigger = false;
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	profile.generatePath({Point{0_m, 0_m, 0_deg},Point{0.79_m, (sideSelector)*-0.82_m, 0_deg}}, "S");
+	profile->generatePath({{0_m, 0_m, 0_deg},{0.79_m, (sideSelector)*-0.82_m, 0_deg}}, "S");
 	pros::lcd::initialize();
 	pros::lcd::set_text(1, "Hello PROS User!");
 
@@ -228,12 +237,6 @@ void trayAdjust(void* param) {
 	tray.move_velocity(0);
 }
 
-void trayTaskAuto(void* param) {
-	trayyy.tarePosition();
-	trayyy.setTarget(2700);
-	trayyy.waitUntilSettled();
-}
-
 void trayTask(void* param) {
 	//2475
 	//1453
@@ -357,32 +360,32 @@ void autonomous() {
 		runTime = 1000;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1200);
-		chassis.setMaxVelocity(150);
-		chassis.moveDistance(0.04_m);
-		chassis.moveDistance(-0.0325_m);
+		chassis->setMaxVelocity(150);
+		chassis->moveDistance(0.04_m);
+		chassis->moveDistance(-0.0325_m);
 		runTime = 2150;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
-		chassis.setMaxVelocity(150);
-		chassis.moveDistance(1.15_m);
-		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*-90_deg);
+		chassis->setMaxVelocity(150);
+		chassis->moveDistance(1.15_m);
+		chassis->setMaxVelocity(50);
+		chassis->turnAngle((sideSelector)*-90_deg);
 		runTime = 1800;
 		runDelay = 200;
 		pros::Task consumeMore (nestedIntake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume More");
 		pros::c::delay(100);
-		chassis.setMaxVelocity(125);
-		chassis.moveDistance(1.3_m);
-		chassis.setMaxVelocity(200);
-		chassis.moveDistance(-1.07_m);
-		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*-135_deg);
+		chassis->setMaxVelocity(125);
+		chassis->moveDistance(1.3_m);
+		chassis->setMaxVelocity(200);
+		chassis->moveDistance(-1.07_m);
+		chassis->setMaxVelocity(50);
+		chassis->turnAngle((sideSelector)*-135_deg);
 		runDelay = 700;
 		runTime = 500;
 		runSpeed = 3000;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		chassis.setMaxVelocity(135);
-		chassis.moveDistance(0.50_m);
+		chassis->setMaxVelocity(135);
+		chassis->moveDistance(0.50_m);
 		pros::c::delay(2000);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		//Tray stack 3/4 rotation velocity 60 time 750ms
@@ -396,28 +399,28 @@ void autonomous() {
 		runTime = 9000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
-		chassis.setMaxVelocity(120);
-		chassis.moveDistance(1.07_m);
-		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*40_deg);
-		chassis.setMaxVelocity(120);
+		chassis->setMaxVelocity(120);
+		chassis->moveDistance(1.07_m);
+		chassis->setMaxVelocity(50);
+		chassis->turnAngle((sideSelector)*40_deg);
+		chassis->setMaxVelocity(120);
 		tray.set_zero_position(tray.get_position());
 		pros::Task trayAdj (trayAdjust, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
-		chassis.setMaxVelocity(180);
-		chassis.moveDistance(-0.92_m);
-		chassis.setMaxVelocity(100);
-		chassis.turnAngle((sideSelector)*-40_deg);
-		chassis.setMaxVelocity(175);
-		chassis.moveDistance(1.07_m);
-		chassis.setMaxVelocity(100);
-		chassis.turnAngle((sideSelector)*135_deg);
+		chassis->setMaxVelocity(180);
+		chassis->moveDistance(-0.92_m);
+		chassis->setMaxVelocity(100);
+		chassis->turnAngle((sideSelector)*-40_deg);
+		chassis->setMaxVelocity(175);
+		chassis->moveDistance(1.07_m);
+		chassis->setMaxVelocity(100);
+		chassis->turnAngle((sideSelector)*135_deg);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 		runDelay = 500;
 		runTime = 700;
 		runSpeed = 50;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		chassis.setMaxVelocity(150);
-		chassis.moveDistance(1.0_m);
+		chassis->setMaxVelocity(150);
+		chassis->moveDistance(1.0_m);
 	}
 	else if(autonMode == 2)
 	{
@@ -426,14 +429,14 @@ void autonomous() {
 		pros::delay(1200);
 		runTime = 10000;
 		pros::Task insome (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Insome");
-		chassis.setMaxVelocity(175);
-		chassis.moveDistance(1.10_m);
+		chassis->setMaxVelocity(175);
+		chassis->moveDistance(1.10_m);
 		pros::delay(500);
-		chassis.moveDistance(-0.15_m);
-		chassis.setMaxVelocity(50);
-		chassis.turnAngle((sideSelector)*-137_deg);//Measured is 135°
-		chassis.setMaxVelocity(150);
-		chassis.moveDistance(1.1_m);
+		chassis->moveDistance(-0.15_m);
+		chassis->setMaxVelocity(50);
+		chassis->turnAngle((sideSelector)*-137_deg);//Measured is 135°
+		chassis->setMaxVelocity(150);
+		chassis->moveDistance(1.1_m);
 		runDelay = 0;
 		runTime = 800;
 		runSpeed = 60;
@@ -451,31 +454,31 @@ void autonomous() {
 	else if(autonMode == 4)
 	{
 		//Z path: Moves forward, moves diagonally, moves forward again, returns to corner
-		chassis.setMaxVelocity(100);
+		chassis->setMaxVelocity(100);
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
 		runTime = 8000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
-		chassis.setMaxVelocity(175);
-		chassis.moveDistance(1.13_m);
-		chassis.moveDistance(-0.16_m);
-		profile.setTarget("S", true);
-		profile.waitUntilSettled();
-		chassis.setMaxVelocity(115);
-		chassis.moveDistance(1.3_m);
-		chassis.setMaxVelocity(180);
-		chassis.moveDistance(-0.72_m);
+		chassis->setMaxVelocity(175);
+		chassis->moveDistance(1.13_m);
+		chassis->moveDistance(-0.16_m);
+		profile->setTarget("S", true);
+		profile->waitUntilSettled();
+		chassis->setMaxVelocity(115);
+		chassis->moveDistance(1.3_m);
+		chassis->setMaxVelocity(180);
+		chassis->moveDistance(-0.72_m);
 		runDelay = 500;
 		runTime = 500;
 		runSpeed = 75;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		chassis.setMaxVelocity(75);
-		chassis.turnAngle((sideSelector)*122_deg);
+		chassis->setMaxVelocity(75);
+		chassis->turnAngle((sideSelector)*122_deg);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
-		chassis.setMaxVelocity(125);
-		chassis.moveDistance(0.45_m);
+		chassis->setMaxVelocity(125);
+		chassis->moveDistance(0.45_m);
 	}
 	else if (autonMode == 5) {
 		runTime = 700;
@@ -484,12 +487,12 @@ void autonomous() {
 		runTime = 6000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
-		chassis.setMaxVelocity(100);
-		chassis.moveDistance(2.8_m);
-		chassis.setMaxVelocity(75);
-		chassis.turnAngle((sideSelector)*45_deg);
-		chassis.setMaxVelocity(125);
-		chassis.moveDistance(0.5_m);
+		chassis->setMaxVelocity(100);
+		chassis->moveDistance(2.8_m);
+		chassis->setMaxVelocity(75);
+		chassis->turnAngle((sideSelector)*45_deg);
+		chassis->setMaxVelocity(125);
+		chassis->moveDistance(0.5_m);
 		runDelay = 0;
 		runTime = 200;
 		runSpeed = 50;
@@ -507,15 +510,15 @@ void autonomous() {
 		{
 			tray.move_velocity(-200);
 		}
-		chassis.setMaxVelocity(75);
-		chassis.moveDistance(-0.2_m);
-		chassis.turnAngle((sideSelector)*135_deg);
+		chassis->setMaxVelocity(75);
+		chassis->moveDistance(-0.2_m);
+		chassis->turnAngle((sideSelector)*135_deg);
 		runTime = 500;
 		pros::Task consume2 (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume2");
-		chassis.setMaxVelocity(150);
-		chassis.moveDistance(0.7_m);
+		chassis->setMaxVelocity(150);
+		chassis->moveDistance(0.7_m);
 		pros::Task armsome (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Arm Move");
-		chassis.moveDistance(0.1_m);4
+		chassis->moveDistance(0.1_m);4
 		*/
 	}
 }
