@@ -29,16 +29,8 @@ using namespace okapi;
 //To adjust distance travelled decrease wheel size to increase distance and vice versa
 //To adjust turn angle increase chassis size to increase turn angle
 auto chassis = ChassisControllerBuilder()
-	.withMotors({LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},{RIGHT_WHEELS_PORT1_AUTO, RIGHT_WHEELS_PORT2_AUTO})
+	.withMotors({LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},{RIGHT_WHEELS_PORT1, RIGHT_WHEELS_PORT2})
 	.withDimensions(AbstractMotor::gearset::green, {{4.095_in, 9.75_in}, imev5GreenTPR})
-	.withGains(
-		{0.001, 0, 0.0001}, //Distance
-		{0.001, 0, 0.0001}, //Turn
-		{0.001, 0, 0.0001}) //Angle
-	.withDerivativeFilters(
-		{std::make_unique<AverageFilter<3>>()},
-		{std::make_unique<AverageFilter<3>>()},
-		{std::make_unique<AverageFilter<3>>()})
 	.withOdometry()
 	.withLogger(
 		std::make_shared<Logger>(
@@ -57,13 +49,14 @@ auto profile = AsyncMotionProfileControllerBuilder()
 	.withOutput(chassis)
 	.buildMotionProfileController();
 
+int speedCurve [125];
 int runTime = 1500;
 int runSpeed = 200; //rpm
 int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
 //0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
-int autonMode = 3;
+int autonMode = 4;
 int sideSelector = -1;//1 for red, -1 for blue
 int stackDelay = 500;
 int stageDelay = 1000;
@@ -75,6 +68,7 @@ int c = 200;
 int d = 0;
 double r = 0.0523875;
 bool trigger = false;
+FILE* fileWrite = fopen("/usd/test.txt", "w");
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -83,7 +77,7 @@ bool trigger = false;
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	profile->generatePath({{0_m, 0_m, 0_deg},{0.79_m, (sideSelector)*-0.82_m, 0_deg}}, "S");
+	profile->generatePath({{0_m, 0_m, 0_deg},{0.71_m, (sideSelector)*-0.93_m, 0_deg}}, "S");
 	pros::lcd::initialize();
 	pros::lcd::set_text(1, "Hello PROS User!");
 
@@ -148,6 +142,14 @@ double gaussMovement(double t) {
 	return toMeters(sqrt(PI) / 2 * c * a * (erf((t - b) / a) - erf(-b / a)));
 }
 
+double gaussCurve(double t) {
+	return sqrt(PI) / 2 * c * exp(-pow((t-b) / a, 2));
+}
+
+double gaussAveraged(double t) {
+	return (sqrt(PI) / 2 * c * a * (erf((t + 10 - b)/a) - erf((t - b) / a)))/10;
+}
+
 double calculateTime(double d) {
 	if (inverseGauss(d) < 2 * b) {
 		return 1;
@@ -159,40 +161,40 @@ double calculateTime(double d) {
 
 double calculateSpeed(double t, double d) {
 	if (t < b) {
-		return gaussMovement(t);
+		return gaussCurve(t);
 	} else if (t < calculateTime(d) - b) {
 		return c;
+	} else if (t < calculateTime(d)){
+		return gaussCurve(b + (t - (calculateTime(d) - b)));
 	} else {
-		return gaussMovement(b + (t - (calculateTime(d) - b)));
+		return 0;
 	}
 }
 
-void moveDistanceSmooth(void* param) {
-	int time = pros::c::millis();
-	while(pros::c::millis() - time < calculateTime(distance))
+void generateCurve() {
+	pros::lcd::set_text(1, "Generating Curve");
+	for(int i = 0; i < 125; i++)
 	{
-		int current = pros::c::millis();
-		double speed = calculateSpeed(current - time, distance);
-		if(pros::c::millis() - current >= 50 && !trigger)
-		{
-			int mil = pros::c::millis() - current;
-			pros::lcd::set_text(1, std::to_string(mil));
-			trigger = true;
-		}
-		left_motor1.move_velocity(speed);
-		left_motor2.move_velocity(speed);
-		right_motor1.move_velocity(speed);
-		right_motor2.move_velocity(speed);
-		/*
-		if(left_motor1.get_actual_velocity() != NAN && left_motor2.get_actual_velocity() != NAN
-			&& right_motor1.get_actual_velocity() != NAN && right_motor2.get_actual_velocity() != NAN)
-		{
-				double vel = (left_motor1.get_actual_velocity() + left_motor2.get_actual_velocity()
-				+ right_motor1.get_actual_velocity() + right_motor2.get_actual_velocity())/4;
+		speedCurve[i] = calculateTime(i*10);
+		pros::lcd::set_text(2, std::to_string(speedCurve[i]));
+		std::fputs(std::to_string(speedCurve[i]).c_str(), fileWrite);
+		std::fputs("\n",fileWrite);
+	}
+	fclose(fileWrite);
+}
 
-		}
-		*/
-		pros::delay(1);
+void moveDistanceSmooth() {
+	generateCurve();
+	int time = pros::c::millis();
+	int i = 0;
+	while(pros::c::millis() < time + calculateTime(distance)) {
+		left_motor1.move_velocity(speedCurve[i]);
+		left_motor2.move_velocity(speedCurve[i]);
+		right_motor1.move_velocity(speedCurve[i]);
+		right_motor2.move_velocity(speedCurve[i]);
+		pros::lcd::set_text(4, std::to_string(speedCurve[i]));
+		pros::delay(10);
+		i++;
 	}
 }
 
@@ -240,13 +242,12 @@ void trayAdjust(void* param) {
 void trayTask(void* param) {
 	//2475
 	//1453
-	tray.set_zero_position(tray.get_position());
-	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 2100)//2450
+	int trayPos = 0;
+	while(angler.get_value() < trayPos + 1700)//2450, 2100
 	{
 		tray.move_velocity(200);//150
 	}
-	while(tray.get_position() < trayPos + 2475)//2650
+	while(angler.get_value() < trayPos + 2275)//2650, 2475
 	{
 		tray.move_velocity(125);//100
 		intake1.move_velocity(150);
@@ -262,14 +263,13 @@ void trayTask(void* param) {
 
 void trayTaskOP(void* param) {
 	//2475
-	//1453
-	tray.set_zero_position(tray.get_position());
-	int trayPos = tray.get_position();
-	while(tray.get_position() < trayPos + 1825)//1900
+	//1453;
+	int trayPos = 0;
+	while(angler.get_value() < trayPos + 1825)//1900
 	{
 		tray.move_velocity(200);//125
 	}
-	while(tray.get_position() < trayPos + 2700)//2650
+	while(angler.get_value() < trayPos + 2700)//2650
 	{
 		tray.move_velocity(100);//75
 		intake1.move_velocity(100);
@@ -449,35 +449,40 @@ void autonomous() {
 		//profileRev.generatePath({Point{0_m, 0_m, 0_deg},Point{0.70_m, 0.58_m, 0_deg}},"A");
 		//profileRev.setTarget("A");
 		//profileRev.waitUntilSettled();
-		pros::Task move (moveDistanceSmooth, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Move");
+		pros::lcd::set_text(3, "Help me Komi-san");
+		moveDistanceSmooth();
 	}
 	else if(autonMode == 4)
 	{
+		pros::lcd::set_text(2, "Megumin bets girl");
 		//Z path: Moves forward, moves diagonally, moves forward again, returns to corner
 		chassis->setMaxVelocity(100);
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
-		runTime = 8000;
+		runTime = 12000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
 		chassis->setMaxVelocity(175);
-		chassis->moveDistance(1.13_m);
-		chassis->moveDistance(-0.16_m);
+		chassis->moveDistance(0.78_m);
+		chassis->setMaxVelocity(125);
+		chassis->moveDistance(0.62_m);
+		chassis->setMaxVelocity(200);
+		chassis->moveDistance(-0.37_m);
 		profile->setTarget("S", true);
 		profile->waitUntilSettled();
-		chassis->setMaxVelocity(115);
-		chassis->moveDistance(1.3_m);
-		chassis->setMaxVelocity(180);
-		chassis->moveDistance(-0.72_m);
+		chassis->setMaxVelocity(125);
+		chassis->moveDistance(1.31_m);
+		chassis->setMaxVelocity(200);
+		chassis->moveDistance(-0.80_m);
 		runDelay = 500;
 		runTime = 500;
 		runSpeed = 75;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
-		chassis->setMaxVelocity(75);
-		chassis->turnAngle((sideSelector)*122_deg);
+		chassis->setMaxVelocity(50);
+		chassis->turnAngle((sideSelector)*123_deg);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
-		chassis->setMaxVelocity(125);
+		chassis->setMaxVelocity(90);
 		chassis->moveDistance(0.45_m);
 	}
 	else if (autonMode == 5) {
@@ -552,12 +557,13 @@ void opcontrol() {
 	{
 		while (true) {
 			pros::lcd::set_text(1,std::to_string(arm.get_position()));
+			pros::lcd::set_text(2,std::to_string(angler.get_value()));
 			std::cout << master.get_analog(ANALOG_LEFT_Y);
 			left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
 			left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
 			right_motor1.move(master.get_analog(ANALOG_RIGHT_Y));
 			right_motor2.move(master.get_analog(ANALOG_RIGHT_Y));
-			if (master.get_digital(DIGITAL_R1) && switchy.get_value() != 1) {
+			if (master.get_digital(DIGITAL_R1)) {
 				arm.move_velocity(200);
 			}
 			else if (master.get_digital(DIGITAL_R2)) {
@@ -578,7 +584,7 @@ void opcontrol() {
 				intake1.move_velocity(0);
 				intake2.move_velocity(0);
 			}
-			if(button.get_value() != 1 && master.get_digital(DIGITAL_B)) {
+			if(master.get_digital(DIGITAL_B)) {
 				tray.move_velocity(-200);
 			}
 			else if (master.get_digital(DIGITAL_X)) {
@@ -646,7 +652,7 @@ void opcontrol() {
 				intake1.move_velocity(0);
 				intake2.move_velocity(0);
 			}
-			if(button.get_value() != 1 && master.get_digital(DIGITAL_B)) {
+			if(master.get_digital(DIGITAL_B)) {
 				tray.move_velocity(-200);
 			}
 			else if (master.get_digital(DIGITAL_X)) {
