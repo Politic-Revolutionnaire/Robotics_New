@@ -1,24 +1,11 @@
 #include "main.h"
-#include "okapi/api.hpp"
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include "pros/okapi/api.hpp"
 #include "globals.h"
 #include "api.h"
 #include "pros/api_legacy.h"
-
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
-}
 
 using namespace okapi;
 
@@ -49,27 +36,6 @@ auto profile = AsyncMotionProfileControllerBuilder()
 	.withOutput(chassis)
 	.buildMotionProfileController();
 
-int speedCurve [125];
-int runTime = 1500;
-int runSpeed = 200; //rpm
-int runDelay = 0;
-int nestedTime = 400;
-int nestedDelay = 100;
-//0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
-int autonMode = 4;
-int sideSelector = -1;//1 for red, -1 for blue
-int stackDelay = 500;
-int stageDelay = 1000;
-bool toggleControl = true;
-double distance = 0.75;
-int a = 1850;
-int b = 100;
-int c = 200;
-int d = 0;
-double r = 0.0523875;
-bool trigger = false;
-FILE* fileWrite = fopen("/usd/test.txt", "w");
-
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
@@ -80,7 +46,6 @@ void initialize() {
 	profile->generatePath({{0_m, 0_m, 0_deg},{0.71_m, (sideSelector)*-0.93_m, 0_deg}}, "S");
 	pros::lcd::initialize();
 	pros::lcd::set_text(1, "Hello PROS User!");
-
 	pros::lcd::register_btn1_cb(on_center_button);
 }
 
@@ -103,6 +68,46 @@ void disabled() {}
 void competition_initialize() {}
 
 /**
+ * A callback function for LLEMU's center button.
+ *
+ * When this callback is fired, it will toggle line 2 of the LCD text between
+ * "I was pressed!" and nothing.
+ */
+void on_center_button() {
+	static bool pressed = false;
+	pressed = !pressed;
+	if (pressed) {
+		pros::lcd::set_text(2, "I was pressed!");
+	} else {
+		pros::lcd::clear_line(2);
+	}
+}
+
+int a = sqrt(4000);
+int b = 130;
+int c = 200;
+int h = 0;
+double timeme = 10000;
+double cAdj = 200;
+double r = 0.0493; //0.0523875
+double dist = 2.0;
+int runTime = 1500;
+int runSpeed = 200; //rpm
+int runDelay = 0;
+int nestedTime = 400;
+int nestedDelay = 100;
+//0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
+int autonMode = 3;
+int sideSelector = -1;//1 for red, -1 for blue
+int stackDelay = 500;
+int stageDelay = 1000;
+bool toggleControl = true;
+bool trigger = false;
+int rev = 1;
+std::ifstream input;
+std::string read;
+
+/**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
  * the Field Management System or the VEX Competition Switch in the autonomous
@@ -113,18 +118,18 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
- float erfInv(float x) {
-  float tt1, tt2, lnx, sgn;
-  sgn = (x < 0) ? -1.0f : 1.0f;
+float erfInv(float x) {
+	float tt1, tt2, lnx, sgn;
+	sgn = (x < 0) ? -1.0f : 1.0f;
 
-  x = (1 - x)*(1 + x);        // x = 1 - x*x;
-  lnx = logf(x);
+	x = (1 - x) * (1 + x);        // x = 1 - x*x;
+	lnx = logf(x);
 
-  tt1 = 2/(PI*0.147) + 0.5f * lnx;
-  tt2 = 1/(0.147) * lnx;
+	tt1 = 2 / (PI * 0.147) + 0.5f * lnx;
+	tt2 = 1 / (0.147) * lnx;
 
-  return(sgn*sqrtf(-tt1 + sqrtf(tt1*tt1 - tt2)));
- }
+	return (sgn * sqrtf(-tt1 + sqrtf(tt1 * tt1 - tt2)));
+}
 
 double toMeters(double d) {
 	return d * (2 * PI * r) / (60 * 1000);
@@ -134,67 +139,97 @@ double toRounds(double d) {
 	return 60 * 1000 * d / (2 * PI * r);
 }
 
-double inverseGauss(double d) {
-	return a * erfInv(erf(-b / a) + (2 * toRounds(d) / (sqrt(PI) * c * a))) + b;
-}
-
-double gaussMovement(double t) {
-	return toMeters(sqrt(PI) / 2 * c * a * (erf((t - b) / a) - erf(-b / a)));
-}
-
 double gaussCurve(double t) {
-	return sqrt(PI) / 2 * c * exp(-pow((t-b) / a, 2));
+	return sqrt(PI) / 2 * c * exp(-pow((t - b) / a, 2)) + h;
+}
+
+double gaussDistanceMoved(double t) {
+	return toMeters(sqrt(PI) / 2 * c * a * (erf((t - b) / a) - erf(-b / a)) + h * t);
+}
+
+double gaussDistanceMoved(double t, double a1, double b1, double c1, double h1) {
+	return toMeters(sqrt(PI) / 2 * c1 * a1 * (erf((t - b1) / a1) - erf(-b1 / a1)) + h1 * t);
 }
 
 double gaussAveraged(double t) {
-	return (sqrt(PI) / 2 * c * a * (erf((t + 10 - b)/a) - erf((t - b) / a)))/10;
+	return sqrt(PI) / 2 * c * a * (erf((t + 10 - b) / a) - erf((t - b) / a)) / 10 + h;
+}
+
+double gaussAveraged(double t, double a1, double b1, double c1, double h1) {
+	return sqrt(PI) / 2 * c1 * a1 * (erf((t + 10 - b1) / a1) - erf((t - b1) / a1)) / 10 + h1;
 }
 
 double calculateTime(double d) {
-	if (inverseGauss(d) < 2 * b) {
-		return 1;
+	if (d < gaussDistanceMoved(2 * b)) {
+		return -1;
 	} else {
-		d = d - gaussMovement(2 * b);
-		return toRounds(d) / c + 2 * b;
+		d = d - gaussDistanceMoved(2 * b);
+		int t = toRounds(d) / c;
+		t = (t / 10) * 10 + 10;
+		cAdj = toRounds(d) / t;
+		return t + 2 * b;
 	}
 }
 
 double calculateSpeed(double t, double d) {
 	if (t < b) {
-		return gaussCurve(t);
-	} else if (t < calculateTime(d) - b) {
-		return c;
-	} else if (t < calculateTime(d)){
-		return gaussCurve(b + (t - (calculateTime(d) - b)));
+		return gaussAveraged(t);
+	} else if (t < timeme - b) {
+		return cAdj;
+	} else if (t < timeme) {
+		return gaussAveraged(2 * b + t - timeme);
 	} else {
 		return 0;
 	}
 }
 
-void generateCurve() {
-	pros::lcd::set_text(1, "Generating Curve");
-	for(int i = 0; i < 125; i++)
-	{
-		speedCurve[i] = calculateTime(i*10);
-		pros::lcd::set_text(2, std::to_string(speedCurve[i]));
-		std::fputs(std::to_string(speedCurve[i]).c_str(), fileWrite);
-		std::fputs("\n",fileWrite);
+double gaussDistanceFull(double t) {
+	if (t == 0) {
+		return 0;
 	}
-	fclose(fileWrite);
+	if (t < b) {
+		return gaussDistanceMoved(t);
+	} else if (t < timeme - b) {
+		return toMeters(cAdj * (t - b)) + gaussDistanceMoved(b);
+	} else {
+		return toMeters(cAdj * (timeme - 2 * b)) + gaussDistanceMoved(2 * b + t - timeme);
+	}
 }
 
-void moveDistanceSmooth() {
-	generateCurve();
-	int time = pros::c::millis();
+void generateCurve(std::string s) {
+	std::ofstream output;
+	output.open(s);
+	timeme = calculateTime(dist);
 	int i = 0;
-	while(pros::c::millis() < time + calculateTime(distance)) {
-		left_motor1.move_velocity(speedCurve[i]);
-		left_motor2.move_velocity(speedCurve[i]);
-		right_motor1.move_velocity(speedCurve[i]);
-		right_motor2.move_velocity(speedCurve[i]);
-		pros::lcd::set_text(4, std::to_string(speedCurve[i]));
-		pros::delay(10);
+	while (i * 10 < timeme) {
+		double speed = calculateSpeed(i * 10, dist);
+		double travel = gaussDistanceFull(i * 10);
+		output << std::to_string(speed) + " " + std::to_string(travel) << std::endl;
 		i++;
+	}
+	output.close();
+}
+
+void moveDistanceSmooth(std::string s) {
+	pros::lcd::set_text(2, "Megumin bets girl");
+	left_encoder.reset();
+	right_encoder.reset();
+	if(left_encoder.get_value() != NAN)
+	{
+		pros::lcd::set_text(4,std::to_string(left_encoder.get_value()) + " " + std::to_string(right_encoder.get_value()));
+	}
+	input.open(s);
+	while(input) {
+		std::getline(input, read);
+		pros::lcd::set_text(3, read);
+		double speed = rev * std::stod(read.substr(0, read.find(" ")));
+		double location = std::stod(read.substr(read.find(" ") + 1));
+		pros::lcd::set_text(5,std::to_string(location));
+		left_motor1.move(speed);
+		left_motor2.move(speed);
+		right_motor1.move(speed);
+		right_motor2.move(speed);
+		pros::delay(10);
 	}
 }
 
@@ -341,6 +376,8 @@ void outtake(void* param) {
 	intake2.move_velocity(0);
 }
 
+using namespace pros;
+
 void autonomous() {
 	pros::lcd::set_text(1, "Auton!");
 	std::cout << "auto";
@@ -352,7 +389,6 @@ void autonomous() {
 	intake2.set_brake_mode(MOTOR_BRAKE_HOLD);
 	arm.set_brake_mode(MOTOR_BRAKE_HOLD);
 	tray.set_brake_mode(MOTOR_BRAKE_HOLD);
-	tray.set_encoder_units(MOTOR_ENCODER_DEGREES);
 	tray.set_zero_position(tray.get_position());
 	if(autonMode == 0)
 	{
@@ -449,8 +485,9 @@ void autonomous() {
 		//profileRev.generatePath({Point{0_m, 0_m, 0_deg},Point{0.70_m, 0.58_m, 0_deg}},"A");
 		//profileRev.setTarget("A");
 		//profileRev.waitUntilSettled();
+		generateCurve("/usd/GaussCurve2m.txt");
 		pros::lcd::set_text(3, "Help me Komi-san");
-		moveDistanceSmooth();
+		moveDistanceSmooth("/usd/GaussCurve2m.txt");
 	}
 	else if(autonMode == 4)
 	{
@@ -463,6 +500,34 @@ void autonomous() {
 		runTime = 12000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
 		pros::delay(100);
+		/*
+		dist = 0.78;
+		generateCurve("/usd/GaussCurve078m.txt");
+		moveDistanceSmooth("/usd/GaussCurve078m.txt");
+		pros::delay(timeme);
+		rev = 1;
+		dist = 0.62;
+		generateCurve("/usd/GaussCurve062m.txt");
+		moveDistanceSmooth("/usd/GaussCurve063m.txt");
+		pros::delay(timeme);
+		rev = -1;
+		dist = 0.37;
+		generateCurve("/usd/GaussCurve037m.txt");
+		moveDistanceSmooth("/usd/GaussCurve037m.txt");
+		pros::delay(timeme);
+		profile->setTarget("S",true);
+		profile->waitUntilSettled();
+		rev = 1;
+		dist = 1.31;
+		generateCurve("/usd/GaussCurve131m.txt");
+		moveDistanceSmooth("/usd/GaussCurve131m.txt");
+		pros::delay(timeme);
+		rev = -1;
+		dist = 0.80;
+		generateCurve("/usd/GaussCurve080m.txt");
+		moveDistanceSmooth("/usd/GaussCurve080m.txt");
+		pros::delay(timeme);
+		*/
 		chassis->setMaxVelocity(175);
 		chassis->moveDistance(0.78_m);
 		chassis->setMaxVelocity(125);
@@ -558,7 +623,6 @@ void opcontrol() {
 		while (true) {
 			pros::lcd::set_text(1,std::to_string(arm.get_position()));
 			pros::lcd::set_text(2,std::to_string(angler.get_value()));
-			std::cout << master.get_analog(ANALOG_LEFT_Y);
 			left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
 			left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
 			right_motor1.move(master.get_analog(ANALOG_RIGHT_Y));

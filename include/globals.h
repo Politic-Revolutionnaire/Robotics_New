@@ -2,7 +2,7 @@
 #include "api.h"
 #include "pros/api_legacy.h"
 
-//deadports 12
+//deadports 3,12
 
 #define RIGHT_WHEELS_PORT1 9
 #define RIGHT_WHEELS_PORT2 10
@@ -14,7 +14,7 @@
 #define LEFT_WHEELS_PORT2 1 //Bottom left
 #define ARM_PORT 4
 #define INTAKE_PORT1 8
-#define INTAKE_PORT2 3
+#define INTAKE_PORT2 6
 #define TRAY_PORT 5
 #define RIGHT_WHEELS_ENCODER1 5
 #define RIGHT_WHEELS_ENCODER2 6
