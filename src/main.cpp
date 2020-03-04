@@ -1,13 +1,47 @@
 #include "main.h"
-#include <cmath>
 #include <fstream>
-#include <iostream>
-#include "pros/okapi/api.hpp"
-#include "globals.h"
-#include "api.h"
-#include "pros/api_legacy.h"
+#include <sys/stat.h>
+
+//deadports 3,12
+
+#define RIGHT_WHEELS_PORT1 9
+#define RIGHT_WHEELS_PORT2 10
+#define RIGHT_WHEELS_PORT1_OP 9
+#define RIGHT_WHEELS_PORT2_OP 10
+#define RIGHT_WHEELS_PORT1_AUTO -9 //Top right
+#define RIGHT_WHEELS_PORT2_AUTO -10 //Bottom right
+#define LEFT_WHEELS_PORT1 2 //Top left
+#define LEFT_WHEELS_PORT2 1 //Bottom left
+#define ARM_PORT 4
+#define INTAKE_PORT1 8
+#define INTAKE_PORT2 6
+#define TRAY_PORT 5
+#define LEFT_WHEELS_ENCODER1 'E'
+#define LEFT_WHEELS_ENCODER2 'F'
+#define RIGHT_WHEELS_ENCODER1 'G'
+#define RIGHT_WHEELS_ENCODER2 'H'
+#define BUTTON_PORT 1
+#define ANGLER_PORT 2
+#define ARM_HIGH_PORT 3
+#define ARM_LOW_PORT 4
 
 using namespace okapi;
+
+pros::Controller master(pros::E_CONTROLLER_MASTER);
+pros::Motor left_motor1(LEFT_WHEELS_PORT1);
+pros::Motor left_motor2(LEFT_WHEELS_PORT2);
+pros::Motor right_motor1(RIGHT_WHEELS_PORT1_OP,true);
+pros::Motor right_motor2(RIGHT_WHEELS_PORT2_OP,true);
+pros::Motor arm (ARM_PORT);
+pros::Motor intake1 (INTAKE_PORT1, true);
+pros::Motor intake2 (INTAKE_PORT2);
+pros::Motor tray (TRAY_PORT, true);
+pros::ADIDigitalIn button(BUTTON_PORT);
+pros::ADIDigitalIn arm_upper(ARM_HIGH_PORT);
+pros::ADIDigitalIn arm_lower(ARM_LOW_PORT);
+pros::ADIAnalogIn angler (ANGLER_PORT);
+okapi::ADIEncoder right_encoder(RIGHT_WHEELS_ENCODER1, RIGHT_WHEELS_ENCODER2, false);
+okapi::ADIEncoder left_encoder(LEFT_WHEELS_ENCODER1, LEFT_WHEELS_ENCODER2, true);
 
 //Wheel size, wheelbase width orig 4.125, 12.5
 //±0.005m for 4.105in wheel size
@@ -15,97 +49,74 @@ using namespace okapi;
 //Wheelbase diameter 12.25in, wheelbase back 10in, wheelbase fron 11.25
 //To adjust distance travelled decrease wheel size to increase distance and vice versa
 //To adjust turn angle increase chassis size to increase turn angle
+/*
 auto chassis = ChassisControllerBuilder()
 	.withMotors({LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},{RIGHT_WHEELS_PORT1, RIGHT_WHEELS_PORT2})
-	.withDimensions(AbstractMotor::gearset::green, {{4.095_in, 9.75_in}, imev5GreenTPR})
+		//4.095, 9.75; 4.000, 9.60
+	.withSensors(ADIEncoder{'E','F'}, ADIEncoder{'G','H',true})
+	.withDimensions(okapi::AbstractMotor::gearset::green, {{2.75_in, 5.25_in}, okapi::quadEncoderTPR})
 	.withOdometry()
 	.withLogger(
-		std::make_shared<Logger>(
-			TimeUtilFactory::createDefault().getTimer(),
+		std::make_shared<okapi::Logger>(
+			okapi::TimeUtilFactory::createDefault().getTimer(),
 			"/usd/logging.txt",
-			Logger::LogLevel::debug
+			okapi::Logger::LogLevel::debug
 		)
 	)
 	.buildOdometry();
+*/
+auto chassis = ChassisControllerBuilder()
+    .withMotors({LEFT_WHEELS_PORT1, LEFT_WHEELS_PORT2},{RIGHT_WHEELS_PORT1, RIGHT_WHEELS_PORT2}) // left motor is 1, right motor is 2 (reversed)
+		.withGains(
+        {0.001, 0, 0.0001}, // distance controller gains
+        {0.0027, 0.000007, 0.0002}, // turn controller gains
+        {0.001, 0, 0.0001}  // angle controller gains (helps drive straight)
+		)
+    .withSensors(
+        ADIEncoder{'E', 'F'}, // left encoder in ADI ports A & B
+        ADIEncoder{'G', 'H', true}  // right encoder in ADI ports C & D (reversed)
+    )
+    // green gearset, tracking wheel diameter (2.75 in), track (7 in), and TPR (360)
+    .withDimensions(AbstractMotor::gearset::green, {{2.75_in, 5.25_in}, quadEncoderTPR})
+    .withOdometry() // use the same scales as the chassis (above)
+    .buildOdometry(); // build an odometry chassis
 
-auto profile = AsyncMotionProfileControllerBuilder()
+auto profile = okapi::AsyncMotionProfileControllerBuilder()
 	.withLimits({
-		1.15, //Max linear velocity
-		5.275, //Max linear acceleration
-		6}) //Max linear jerk
+		1.097, //Max linear velocity, 1.15
+		4.7, //Max linear acceleration, 5.275, 6.75
+		5.75}) //Max linear jerk, 11
 	.withOutput(chassis)
 	.buildMotionProfileController();
 
-/**
- * Runs initialization code. This occurs as soon as the program is started.
- *
- * All other competition modes are blocked by initialize; it is recommended
- * to keep execution time for this mode under a few seconds.
- */
-void initialize() {
-	profile->generatePath({{0_m, 0_m, 0_deg},{0.71_m, (sideSelector)*-0.93_m, 0_deg}}, "S");
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
-	pros::lcd::register_btn1_cb(on_center_button);
-}
-
-/**
- * Runs while the robot is in the disabled state of Field Management System or
- * the VEX Competition Switch, following either autonomous or opcontrol. When
- * the robot is enabled, this task will exit.
- */
-void disabled() {}
-
-/**
- * Runs after initialize(), and before autonomous when connected to the Field
- * Management System or the VEX Competition Switch. This is intended for
- * competition-specific initialization routines, such as an autonomous selector
- * on the LCD.
- *
- * This task will exit when the robot is enabled and autonomous or opcontrol
- * starts.
- */
-void competition_initialize() {}
-
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
-}
-
-int a = sqrt(4000);
-int b = 130;
-int c = 200;
+int a = sqrt(6000);
+int b = 180;
+int m = 200;
 int h = 0;
 double timeme = 10000;
 double cAdj = 200;
-double r = 0.0493; //0.0523875
+double r = 0.0523875; //0.0523875, 0.0493, 0.05385
+double r2 = 0.034925;
 double dist = 2.0;
+int moveTime = 300;
 int runTime = 1500;
 int runSpeed = 200; //rpm
 int runDelay = 0;
 int nestedTime = 400;
 int nestedDelay = 100;
+int armDelay = 0;
 //0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
-int autonMode = 3;
+int autonMode = 4;
 int sideSelector = -1;//1 for red, -1 for blue
 int stackDelay = 500;
 int stageDelay = 1000;
+int armDist = 50;
 bool toggleControl = true;
 bool trigger = false;
 int rev = 1;
-std::ifstream input;
-std::string read;
+std::ofstream logger;
+
+int logtime = 0;
 
 /**
  * Runs the user autonomous code. This function will be started in its own task
@@ -140,11 +151,11 @@ double toRounds(double d) {
 }
 
 double gaussCurve(double t) {
-	return sqrt(PI) / 2 * c * exp(-pow((t - b) / a, 2)) + h;
+	return sqrt(PI) / 2 * m * exp(-pow((t - b) / a, 2)) + h;
 }
 
 double gaussDistanceMoved(double t) {
-	return toMeters(sqrt(PI) / 2 * c * a * (erf((t - b) / a) - erf(-b / a)) + h * t);
+	return toMeters(sqrt(PI) / 2 * m * a * (erf((t - b) / a) - erf(-b / a)) + h * t);
 }
 
 double gaussDistanceMoved(double t, double a1, double b1, double c1, double h1) {
@@ -152,7 +163,7 @@ double gaussDistanceMoved(double t, double a1, double b1, double c1, double h1) 
 }
 
 double gaussAveraged(double t) {
-	return sqrt(PI) / 2 * c * a * (erf((t + 10 - b) / a) - erf((t - b) / a)) / 10 + h;
+	return sqrt(PI) / 2 * m * a * (erf((t + 10 - b) / a) - erf((t - b) / a)) / 10 + h;
 }
 
 double gaussAveraged(double t, double a1, double b1, double c1, double h1) {
@@ -164,7 +175,7 @@ double calculateTime(double d) {
 		return -1;
 	} else {
 		d = d - gaussDistanceMoved(2 * b);
-		int t = toRounds(d) / c;
+		int t = toRounds(d) / (m + h);
 		t = (t / 10) * 10 + 10;
 		cAdj = toRounds(d) / t;
 		return t + 2 * b;
@@ -196,46 +207,83 @@ double gaussDistanceFull(double t) {
 	}
 }
 
-void generateCurve(std::string s) {
-	std::ofstream output;
-	output.open(s);
-	timeme = calculateTime(dist);
-	int i = 0;
-	while (i * 10 < timeme) {
-		double speed = calculateSpeed(i * 10, dist);
-		double travel = gaussDistanceFull(i * 10);
-		output << std::to_string(speed) + " " + std::to_string(travel) << std::endl;
-		i++;
+void generateCurve(std::string s, bool t) {
+	struct stat buffer;
+	if (stat(s.c_str(), &buffer) || t) {
+		std::ofstream output;
+		output.open(s);
+		timeme = calculateTime(dist);
+		output << std::to_string(timeme) << std::endl;
+		int i = 0;
+		while (i * 10 < timeme) {
+			double speed = calculateSpeed(i * 10, dist);
+			double travel = gaussDistanceFull(i * 10);
+			output << "\n" + std::to_string(rev * speed) + " " + std::to_string(rev * travel);
+			i++;
+		}
+		output.close();
 	}
-	output.close();
 }
 
 void moveDistanceSmooth(std::string s) {
-	pros::lcd::set_text(2, "Megumin bets girl");
 	left_encoder.reset();
 	right_encoder.reset();
-	if(left_encoder.get_value() != NAN)
-	{
-		pros::lcd::set_text(4,std::to_string(left_encoder.get_value()) + " " + std::to_string(right_encoder.get_value()));
-	}
+	pros::lcd::set_text(2, "Moving distance" + s);
+	std::ifstream input;
+	std::string read;
 	input.open(s);
+	getline(input, read);
+	timeme = stod(read);
+	getline(input, read);
+	pros::lcd::set_text(6, read);
 	while(input) {
-		std::getline(input, read);
-		pros::lcd::set_text(3, read);
-		double speed = rev * std::stod(read.substr(0, read.find(" ")));
-		double location = std::stod(read.substr(read.find(" ") + 1));
-		pros::lcd::set_text(5,std::to_string(location));
+		getline(input, read);
+		double speed = stod(read.substr(0, read.find(" ") - 1));
+		double distance = stod(read.substr(read.find(" ") + 1));
+		/*
+		try {
+			double location = std::stod(read.substr(read.find(" ")));
+			double calculatedLoc = (left_encoder.get()/360 + right_encoder.get()/360) * PI * r2;
+			double percDiff = abs((location - calculatedLoc) / location);
+			speed = speed * percDiff;
+			pros::lcd::set_text(5, "Truly wonderful the mind of a child is");
+		} catch (std::exception e1) {
+			pros::lcd::set_text(5,"Failed I have, into exile I must go");
+		}
+		*/
 		left_motor1.move(speed);
 		left_motor2.move(speed);
 		right_motor1.move(speed);
 		right_motor2.move(speed);
+		pros::lcd::set_text(5,std::to_string(left_encoder.get()));
+		pros::lcd::set_text(5,std::to_string(right_encoder.get()));
 		pros::delay(10);
 	}
+	input.close();
+	left_motor1.move(0);
+	left_motor2.move(0);
+	right_motor1.move(0);
+	right_motor2.move(0);
+}
+
+void forwardTask(void* param) {
+	int time = pros::c::millis();
+	while(pros::c::millis() - time <= moveTime)
+	{
+		left_motor1.move_velocity(125);
+		left_motor2.move_velocity(125);
+		right_motor1.move_velocity(125);
+		right_motor2.move_velocity(125);
+	}
+	left_motor1.move_velocity(0);
+	left_motor2.move_velocity(0);
+	right_motor1.move_velocity(0);
+	right_motor2.move_velocity(0);
 }
 
 void backwardTask(void* param) {
 	int time = pros::c::millis();
-	while(pros::c::millis() - time <= 750)
+	while(pros::c::millis() - time <= moveTime)
 	{
 		left_motor1.move_velocity(-75);
 		left_motor2.move_velocity(-75);
@@ -278,15 +326,15 @@ void trayTask(void* param) {
 	//2475
 	//1453
 	int trayPos = 0;
-	while(angler.get_value() < trayPos + 1700)//2450, 2100
+	while(angler.get_value() < trayPos + 1850)//2450, 2100
 	{
 		tray.move_velocity(200);//150
 	}
-	while(angler.get_value() < trayPos + 2275)//2650, 2475
+	while(angler.get_value() < trayPos + 2260)//2650, 2475
 	{
 		tray.move_velocity(125);//100
-		intake1.move_velocity(150);
-		intake2.move_velocity(150);
+		intake1.move_velocity(100);
+		intake2.move_velocity(100);
 	}
 	tray.move_velocity(0);
 	intake1.move_velocity(0);
@@ -300,30 +348,35 @@ void trayTaskOP(void* param) {
 	//2475
 	//1453;
 	int trayPos = 0;
-	while(angler.get_value() < trayPos + 1825)//1900
+	while(angler.get_value() < trayPos + 1805)//1900
 	{
-		tray.move_velocity(200);//125
+		tray.move_velocity(140);//125
 	}
-	while(angler.get_value() < trayPos + 2700)//2650
+	while(angler.get_value() < trayPos + 2170)//2650
 	{
-		tray.move_velocity(100);//75
-		intake1.move_velocity(100);
-		intake2.move_velocity(100);
+		tray.move_velocity(92);//75
 	}
 	tray.move_velocity(0);
-	intake1.move_velocity(0);
-	intake2.move_velocity(0);
-	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
-	pros::delay(250);
-	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
 }
 
 void armTask(void* param) {
+	pros::delay(armDelay);
 	arm.set_zero_position(arm.get_position());
 	int armPos = arm.get_position();
-	while(arm.get_position() < armPos + 980)
+	while(arm.get_position() < armPos + armDist)
 	{
 		arm.move_velocity(200);
+	}
+	arm.move_velocity(0);
+}
+
+void armFall(void* param) {
+	pros::delay(armDelay);
+	arm.set_zero_position(arm.get_position());
+	int armPos = arm.get_position();
+	while(arm.get_position() > armPos + armDist && arm_lower.get_value() != 1)
+	{
+		arm.move_velocity(-150);
 	}
 	arm.move_velocity(0);
 }
@@ -376,7 +429,94 @@ void outtake(void* param) {
 	intake2.move_velocity(0);
 }
 
-using namespace pros;
+/**
+ * A callback function for LLEMU's center button.
+ *
+ * When this callback is fired, it will toggle line 2 of the LCD text between
+ * "I was pressed!" and nothing.
+ */
+void on_center_button() {
+	static bool pressed = false;
+	pressed = !pressed;
+	if (pressed) {
+		pros::lcd::set_text(2, "I was pressed!");
+	} else {
+		pros::lcd::clear_line(2);
+	}
+}
+
+/**
+ * Runs initialization code. This occurs as soon as the program is started.
+ *
+ * All other competition modes are blocked by initialize; it is recommended
+ * to keep execution time for this mode under a few seconds.
+ */
+void initialize() {
+	logtime = pros::c::millis();
+	pros::lcd::initialize();
+	pros::lcd::set_text(1, "Hello PROS User!");
+	pros::lcd::register_btn1_cb(on_center_button);
+	profile->generatePath({{0_m, 0_m, 0_deg},{0.45_m, (sideSelector)*-0.609_m, 0_deg}}, "S");
+	profile->generatePath({{0_m, 0_m, 0_deg},{0.80_m, 0_m, 0_deg}}, "A");
+	profile->generatePath({{0_m, 0_m, 0_deg},{0.60_m, 0_m, 0_deg}}, "B");
+	bool gen = false;
+	rev = -1;
+	dist = 0.40;
+	generateCurve("/usd/0.40m.txt",gen);
+	rev = 1;
+	dist = 1.31;
+	generateCurve("/usd/1.31m.txt",gen);
+	rev = -1;
+	dist = 0.80;
+	generateCurve("/usd/0.80m.txt",gen);
+	rev = 1;
+	dist = 0.45;
+	generateCurve("/usd/0.45m.txt",gen);
+	m = 125;
+	rev = 1;
+	dist = 1.4;
+	generateCurve("/usd/1.4m.txt",gen);
+	rev = -1;
+	dist = 1.0;
+	generateCurve("/usd/1.0m.txt",gen);
+	rev = 1;
+	dist = 0.36;
+	a = sqrt(3500);
+	b = 100;
+	m = 66;
+	h = -6;
+	generateCurve("/usd/0.36m.txt",gen);
+	m = 41;
+	rev = 1;
+	dist = 0.22;
+	generateCurve("/usd/0.22m.txt",gen);
+	m = 126;
+	rev = 1;
+	dist = 0.20;
+	generateCurve("/usd/0.20m.txt",gen);
+	rev = -1;
+	dist = 0.15;
+	generateCurve("/usd/0.15m.txt",gen);
+	m = 200;
+}
+
+/**
+ * Runs while the robot is in the disabled state of Field Management System or
+ * the VEX Competition Switch, following either autonomous or opcontrol. When
+ * the robot is enabled, this task will exit.
+ */
+void disabled() {}
+
+/**
+ * Runs after initialize(), and before autonomous when connected to the Field
+ * Management System or the VEX Competition Switch. This is intended for
+ * competition-specific initialization routines, such as an autonomous selector
+ * on the LCD.
+ *
+ * This task will exit when the robot is enabled and autonomous or opcontrol
+ * starts.
+ */
+void competition_initialize() {}
 
 void autonomous() {
 	pros::lcd::set_text(1, "Auton!");
@@ -392,6 +532,7 @@ void autonomous() {
 	tray.set_zero_position(tray.get_position());
 	if(autonMode == 0)
 	{
+		int path0 = 0;
 		//L path: moves forward, turns 90°, moves forward again then back, turns 135° and goes to corner
 		runTime = 1000;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
@@ -428,6 +569,7 @@ void autonomous() {
 	}
 	else if(autonMode == 1)
 	{
+		int path1 = 0;
 		//Z path: Moves forward, moves diagonally, moves forward again, returns to corner
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
@@ -460,6 +602,7 @@ void autonomous() {
 	}
 	else if(autonMode == 2)
 	{
+		int path2 = 0;
 		runTime = 1000;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 		pros::delay(1200);
@@ -482,75 +625,81 @@ void autonomous() {
 	}
 	else if(autonMode == 3)
 	{
-		//profileRev.generatePath({Point{0_m, 0_m, 0_deg},Point{0.70_m, 0.58_m, 0_deg}},"A");
-		//profileRev.setTarget("A");
-		//profileRev.waitUntilSettled();
-		generateCurve("/usd/GaussCurve2m.txt");
-		pros::lcd::set_text(3, "Help me Komi-san");
-		moveDistanceSmooth("/usd/GaussCurve2m.txt");
+		int path3 = 0;
+		//chassis->setMaxVelocity(150);
+		//chassis->driveToPoint({1.0_m,0_m});
+		//generateCurve("/usd/GaussCurve1m.txt",true);
+		//moveDistanceSmooth("/usd/GaussCurve1m.txt");
+		pros::lcd::set_text(3,std::to_string(left_encoder.get()));
+		pros::lcd::set_text(4,std::to_string(right_encoder.get()));
+		chassis->turnToAngle(45_deg);
+		//chassis->moveDistance(1.0_m);
+		//profile->generatePath({{0_m, 0_m, 0_deg},{1.00_m, 0_m, 0_deg}},"A");
+		//profile->setTarget("S");
+		//profile->waitUntilSettled();
+		//rev = 1;
+		//dist = 1.0;
+		//generateCurve("/usd/GaussCurve1m.txt",true);
+		//pros::lcd::set_text(3, "Help me Komi-san");
+		//moveDistanceSmooth("/usd/GaussCurve1m.txt");
+		//chassis->setMaxVelocity(200);
+		//chassis->moveDistance(1.25_m);
+		//runTime = 1000;
+		//pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 	}
 	else if(autonMode == 4)
 	{
-		pros::lcd::set_text(2, "Megumin bets girl");
+		int path4 = 0;
+		pros::lcd::set_text(2, "Auton Version 4");
 		//Z path: Moves forward, moves diagonally, moves forward again, returns to corner
-		chassis->setMaxVelocity(100);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.20m.txt");
 		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(1000);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.15m.txt");
+		pros::delay(100);
+		armDist = -600;
+		armDelay = 0;
+		pros::Task arm0 (armFall, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Move");
 		runTime = 12000;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
-		pros::delay(100);
-		/*
-		dist = 0.78;
-		generateCurve("/usd/GaussCurve078m.txt");
-		moveDistanceSmooth("/usd/GaussCurve078m.txt");
-		pros::delay(timeme);
-		rev = 1;
-		dist = 0.62;
-		generateCurve("/usd/GaussCurve062m.txt");
-		moveDistanceSmooth("/usd/GaussCurve063m.txt");
-		pros::delay(timeme);
-		rev = -1;
-		dist = 0.37;
-		generateCurve("/usd/GaussCurve037m.txt");
-		moveDistanceSmooth("/usd/GaussCurve037m.txt");
-		pros::delay(timeme);
-		profile->setTarget("S",true);
-		profile->waitUntilSettled();
-		rev = 1;
-		dist = 1.31;
-		generateCurve("/usd/GaussCurve131m.txt");
-		moveDistanceSmooth("/usd/GaussCurve131m.txt");
-		pros::delay(timeme);
-		rev = -1;
-		dist = 0.80;
-		generateCurve("/usd/GaussCurve080m.txt");
-		moveDistanceSmooth("/usd/GaussCurve080m.txt");
-		pros::delay(timeme);
-		*/
-		chassis->setMaxVelocity(175);
-		chassis->moveDistance(0.78_m);
-		chassis->setMaxVelocity(125);
-		chassis->moveDistance(0.62_m);
-		chassis->setMaxVelocity(200);
-		chassis->moveDistance(-0.37_m);
+		pros::delay(10);
+		armDist = 550;
+		armDelay = 1150;
+		pros::Task arm (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Move");
+		moveDistanceSmooth("/usd/0.36m.txt");
+		pros::delay(300);
+		armDist = -600;
+		armDelay = 600;
+		pros::Task arm2 (armFall, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Move");
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.22m.txt");
 		profile->setTarget("S", true);
 		profile->waitUntilSettled();
-		chassis->setMaxVelocity(125);
-		chassis->moveDistance(1.31_m);
-		chassis->setMaxVelocity(200);
-		chassis->moveDistance(-0.80_m);
+		//chassis->setMaxVelocity(135);
+		//chassis->moveDistance(1.31_m);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/GaussCurve1.31m.txt");
+		//chassis->setMaxVelocity(200);
+		//chassis->moveDistance(-0.80_m);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/GaussCurve0.80m.txt");
 		runDelay = 500;
 		runTime = 500;
 		runSpeed = 75;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outsome");
 		chassis->setMaxVelocity(50);
-		chassis->turnAngle((sideSelector)*123_deg);
+		chassis->turnAngle((sideSelector)*125_deg);
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
-		chassis->setMaxVelocity(90);
-		chassis->moveDistance(0.45_m);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.45m.txt");
+		//chassis->setMaxVelocity(90);
+		//chassis->moveDistance(0.45_m);
 	}
 	else if (autonMode == 5) {
+		int path5 = 0;
 		runTime = 700;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
 		pros::delay(800);
@@ -590,6 +739,31 @@ void autonomous() {
 		pros::Task armsome (armTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Arm Move");
 		chassis->moveDistance(0.1_m);4
 		*/
+	} else if (autonMode == 6) {
+		int path6 = 0;
+		chassis->setMaxVelocity(100);
+		chassis->moveDistance(0.10_m);
+		runTime = 700;
+		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
+		pros::delay(800);
+		runTime = 3500;
+		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
+		pros::delay(100);
+		chassis->moveDistance(-0.03_m);
+		chassis->setMaxVelocity(200);
+		//moveDistanceSmooth("/usd/GaussCurve1.4m.txt");
+		chassis->setMaxVelocity(115);
+		chassis->moveDistance(1.4_m);
+		chassis->moveDistance(-1.0_m);
+		runDelay = 500;
+		runTime = 500;
+		runSpeed = 75;
+		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Some");
+		chassis->setMaxVelocity(50);
+		chassis->turnAngle((sideSelector)*125_deg);
+		chassis->setMaxVelocity(90);
+		chassis->moveDistance(0.25_m);
+		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 	}
 }
 
@@ -621,17 +795,20 @@ void opcontrol() {
 	if(toggleControl)
 	{
 		while (true) {
-			pros::lcd::set_text(1,std::to_string(arm.get_position()));
+			//pros::lcd::set_text(1,std::to_string(arm.get_position()));
+			//pros::lcd::set_text(1,std::to_string(chassis->getModel()->getSensorVals()[1]));
 			pros::lcd::set_text(2,std::to_string(angler.get_value()));
+			pros::lcd::set_text(3,std::to_string(left_encoder.get()));
+			pros::lcd::set_text(4,std::to_string(right_encoder.get()));
 			left_motor1.move(master.get_analog(ANALOG_LEFT_Y));
 			left_motor2.move(master.get_analog(ANALOG_LEFT_Y));
 			right_motor1.move(master.get_analog(ANALOG_RIGHT_Y));
 			right_motor2.move(master.get_analog(ANALOG_RIGHT_Y));
-			if (master.get_digital(DIGITAL_R1)) {
+			if (master.get_digital(DIGITAL_R1) && arm_upper.get_value() != 1) {
 				arm.move_velocity(200);
 			}
-			else if (master.get_digital(DIGITAL_R2)) {
-				arm.move_velocity(-100);
+			else if (master.get_digital(DIGITAL_R2) && arm_lower.get_value() != 1) {
+				arm.move_velocity(-200);
 			}
 			else {
 				arm.move_velocity(0);
@@ -648,17 +825,21 @@ void opcontrol() {
 				intake1.move_velocity(0);
 				intake2.move_velocity(0);
 			}
-			if(master.get_digital(DIGITAL_B)) {
+			if(master.get_digital(DIGITAL_B) && angler.get_value() > 1190) {
 				tray.move_velocity(-200);
 			}
-			else if (master.get_digital(DIGITAL_X)) {
+			else if (master.get_digital(DIGITAL_X) && angler.get_value() < 2500) {
 				tray.move_velocity(200);
 			}
-			else if (master.get_digital(DIGITAL_A)) {
+			else if (master.get_digital(DIGITAL_A) && angler.get_value() < 2500) {
 				tray.move_velocity(50);
 			}
 			else {
 				tray.move_velocity(0);
+			}
+			if(master.get_digital(DIGITAL_Y)) {
+				intake1.move_velocity(-200);
+				intake2.move_velocity(-200);
 			}
 			if(master.get_digital(DIGITAL_DOWN))
 			{
@@ -695,10 +876,10 @@ void opcontrol() {
 			left_motor2.move(left);
 			right_motor1.move(right);
 			right_motor2.move(right);
-			if (master.get_digital(DIGITAL_R1)) {
+			if (master.get_digital(DIGITAL_R1) && arm_upper.get_value() != 1) {
 				arm.move_velocity(200);
 			}
-			else if (master.get_digital(DIGITAL_R2)) {
+			else if (master.get_digital(DIGITAL_R2) && arm_lower.get_value() != 1) {
 				arm.move_velocity(-100);
 			}
 			else {
@@ -716,13 +897,13 @@ void opcontrol() {
 				intake1.move_velocity(0);
 				intake2.move_velocity(0);
 			}
-			if(master.get_digital(DIGITAL_B)) {
+			if(master.get_digital(DIGITAL_B) && button.get_value() != 1) {
 				tray.move_velocity(-200);
 			}
-			else if (master.get_digital(DIGITAL_X)) {
+			else if (master.get_digital(DIGITAL_X) && angler.get_value() < 2500) {
 				tray.move_velocity(200);
 			}
-			else if (master.get_digital(DIGITAL_A)) {
+			else if (master.get_digital(DIGITAL_A) && angler.get_value() < 2500) {
 				tray.move_velocity(50);
 			}
 			else {
