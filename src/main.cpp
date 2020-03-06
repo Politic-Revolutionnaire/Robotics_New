@@ -98,6 +98,7 @@ double cAdj = 200;
 double r = 0.0523875; //0.0523875, 0.0493, 0.05385
 double r2 = 0.034925;
 double dist = 2.0;
+double prevDist = 0;
 int moveTime = 300;
 int runTime = 1500;
 int runSpeed = 200; //rpm
@@ -106,7 +107,7 @@ int nestedTime = 400;
 int nestedDelay = 100;
 int armDelay = 0;
 //0 for L path, 1 for Z path skills, 2 for square path, 3 for mischellaneous testing, 4 for Z path auton
-int autonMode = 4;
+int autonMode = 6;
 int sideSelector = -1;//1 for red, -1 for blue
 int stackDelay = 500;
 int stageDelay = 1000;
@@ -217,11 +218,12 @@ void generateCurve(std::string s, bool t) {
 		int i = 0;
 		while (i * 10 < timeme) {
 			double speed = calculateSpeed(i * 10, dist);
-			double travel = gaussDistanceFull(i * 10);
-			output << "\n" + std::to_string(rev * speed) + " " + std::to_string(rev * travel);
+			output << "\n" + std::to_string(rev * speed) + " " + std::to_string(prevDist);
+			prevDist += toMeters(rev * speed * 10);
 			i++;
 		}
 		output.close();
+		prevDist = 0;
 	}
 }
 
@@ -240,16 +242,11 @@ void moveDistanceSmooth(std::string s) {
 		getline(input, read);
 		double speed = stod(read.substr(0, read.find(" ") - 1));
 		double distance = stod(read.substr(read.find(" ") + 1));
+		double location = std::stod(read.substr(read.find(" ")));
 		/*
-		try {
-			double location = std::stod(read.substr(read.find(" ")));
-			double calculatedLoc = (left_encoder.get()/360 + right_encoder.get()/360) * PI * r2;
-			double percDiff = abs((location - calculatedLoc) / location);
-			speed = speed * percDiff;
-			pros::lcd::set_text(5, "Truly wonderful the mind of a child is");
-		} catch (std::exception e1) {
-			pros::lcd::set_text(5,"Failed I have, into exile I must go");
-		}
+		double calculatedLoc = (left_encoder.get()/360 + right_encoder.get()/360) * PI * r2;
+		double percDiff = abs((location - calculatedLoc) / location);
+		speed = speed / (percDiff * 1.05);
 		*/
 		left_motor1.move(speed);
 		left_motor2.move(speed);
@@ -333,12 +330,12 @@ void trayTask(void* param) {
 	while(angler.get_value() < trayPos + 2260)//2650, 2475
 	{
 		tray.move_velocity(125);//100
-		intake1.move_velocity(100);
-		intake2.move_velocity(100);
+		//intake1.move_velocity(100);
+		//intake2.move_velocity(100);
 	}
 	tray.move_velocity(0);
-	intake1.move_velocity(0);
-	intake2.move_velocity(0);
+	//intake1.move_velocity(0);
+	//intake2.move_velocity(0);
 	pros::Task outtake (outtakeTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Outtake");
 	pros::delay(125);
 	pros::Task backward (backwardTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Backward");
@@ -350,9 +347,9 @@ void trayTaskOP(void* param) {
 	int trayPos = 0;
 	while(angler.get_value() < trayPos + 1805)//1900
 	{
-		tray.move_velocity(140);//125
+		tray.move_velocity(160);//125
 	}
-	while(angler.get_value() < trayPos + 2170)//2650
+	while(angler.get_value() < trayPos + 2240)//2650
 	{
 		tray.move_velocity(92);//75
 	}
@@ -480,23 +477,42 @@ void initialize() {
 	dist = 1.0;
 	generateCurve("/usd/1.0m.txt",gen);
 	rev = 1;
+	dist = 0.70;
+	m = 75;
+	generateCurve("/usd/0.70m.txt",gen);
+	rev = -1;
+	dist = 0.46;
+	generateCurve("/usd/0.46m.txt",gen);
+	rev = 1;
+	dist = 0.24;
+	m = 90;
+	generateCurve("/usd/0.24m.txt",gen);
+	rev = 1;
 	dist = 0.36;
 	a = sqrt(3500);
 	b = 100;
 	m = 66;
 	h = -6;
 	generateCurve("/usd/0.36m.txt",gen);
+	dist = 0.17;
+	generateCurve("/usd/0.17m.txt",gen);
+	rev = -1;
+	dist = 0.15;
+	generateCurve("/usd/neg0.15m.txt",gen);
+	rev = -1;
+	dist = 0.17;
+	generateCurve("/usd/neg0.17m.txt",gen);
 	m = 41;
 	rev = 1;
 	dist = 0.22;
 	generateCurve("/usd/0.22m.txt",gen);
-	m = 126;
+	m = 151;
 	rev = 1;
-	dist = 0.20;
-	generateCurve("/usd/0.20m.txt",gen);
+	dist = 0.18;
+	generateCurve("/usd/0.18m.txt",gen);
 	rev = -1;
-	dist = 0.15;
-	generateCurve("/usd/0.15m.txt",gen);
+	dist = 0.13;
+	generateCurve("/usd/0.13m.txt",gen);
 	m = 200;
 }
 
@@ -659,7 +675,6 @@ void autonomous() {
 		pros::delay(1000);
 		pros::delay(10);
 		moveDistanceSmooth("/usd/0.15m.txt");
-		pros::delay(100);
 		armDist = -600;
 		armDelay = 0;
 		pros::Task arm0 (armFall, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Move");
@@ -741,28 +756,43 @@ void autonomous() {
 		*/
 	} else if (autonMode == 6) {
 		int path6 = 0;
-		chassis->setMaxVelocity(100);
-		chassis->moveDistance(0.10_m);
-		runTime = 700;
+		pros::lcd::set_text(2, "Auton Version 4");
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.18m.txt");
+		runTime = 900;
 		pros::Task deploy (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Deploy");
-		pros::delay(800);
-		runTime = 3500;
+		pros::delay(1000);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.13m.txt");
+		armDist = -600;
+		armDelay = 0;
+		pros::Task arm0 (armFall, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Move");
+		runTime = 5500;
 		pros::Task consume (intake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Consume");
-		pros::delay(100);
-		chassis->moveDistance(-0.03_m);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.70m.txt");
+		pros::delay(10);
+		moveDistanceSmooth("/usd/neg0.15m.txt");
+		chassis->setMaxVelocity(100);
+		chassis->turnToAngle((sideSelector)*-35_deg);
 		chassis->setMaxVelocity(200);
-		//moveDistanceSmooth("/usd/GaussCurve1.4m.txt");
-		chassis->setMaxVelocity(115);
-		chassis->moveDistance(1.4_m);
-		chassis->moveDistance(-1.0_m);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.17m.txt");
+		pros::delay(10);
+		moveDistanceSmooth("/usd/neg0.17m.txt");
+		pros::delay(20);
+		chassis->setMaxVelocity(100);
+		chassis->turnToAngle((sideSelector)*35_deg);
+		chassis->setMaxVelocity(200);
+		pros::delay(10);
+		moveDistanceSmooth("/usd/0.46m.txt");
 		runDelay = 500;
 		runTime = 500;
 		runSpeed = 75;
 		pros::Task outsome (outtake, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "Some");
-		chassis->setMaxVelocity(50);
-		chassis->turnAngle((sideSelector)*125_deg);
-		chassis->setMaxVelocity(90);
-		chassis->moveDistance(0.25_m);
+		chassis->setMaxVelocity(100);
+		chassis->turnToAngle((sideSelector)*125_deg);
+		moveDistanceSmooth("/usd/0.24m.txt");
 		pros::Task traySome (trayTask, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT, "trayTask");
 	}
 }
